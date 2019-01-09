@@ -23,6 +23,20 @@ def write_json(filename, data):
     with open(filename, 'w') as outfile:
         json.dump(data, outfile,  indent=4)
 
+def read_json(filename):
+    import json
+    with open(filename, 'r') as _file:
+        return json.load(_file)
+
+def read_info_file(file_name, ext=None):
+    if not ext is None:
+        file_name = file_name.replace(".gz","").replace(".pdb","")
+        file_name = file_name+ext
+    if os.path.exists(file_name):
+        return read_json(file_name)
+    else:
+        print(f"WARNING: info file not found: {file_name}")
+        return {}
 
 def replace_extension(file_name, ext):
     """Replace extension of file_name with ext. Ext can contain a dot or not"""

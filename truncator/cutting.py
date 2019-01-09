@@ -12,7 +12,7 @@ import pymol
 from pymol import cmd
 
 
-def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_fraction=1/4*0.9):
+def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_fraction=1/4*0.9, cmd=None):
     """Cuts bundles to a number of heptades in steps of heptad fractions"""
     md = {}
     md['cutting.tol_A']=tol_A
@@ -20,7 +20,11 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     md['cutting.step_heptad_fraction']=step_heptad_fraction
     md['cutting.base_struct_name']=struct_name
     md['cutting.base_struct_name_full']=os.path.abspath(struct_name)
-    
+
+    if cmd is None:
+        import pymol
+        cmd =  pymol.cmd
+        cmd.do("delete all")
     base_name = truncator.basename_noext(struct_name)
     cmd.load(struct_name, object=base_name)
     model = cmd.get_model("name ca")
@@ -40,8 +44,11 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     #get helix orientations as a dictionary 
     helix_orientations = {}
     for n, (_from, _to) in enumerate(helices_pos_pymol):
-        #print(n,_from, _to )
-        helix_coords = cmd.get_coords(f"resi {_from}-{_to}")
+        sel_str =  f"resi {_from}+{_to}"
+        #print(n,_from, _to, sel_str)
+        
+        helix_coords = cmd.get_coords(sel_str)
+
         z_diff = np.diff(np.array(helix_coords)[:,2])[0]
         if z_diff > 0:
             helix_orientations[chainIDs[n]] = "U"
@@ -64,8 +71,8 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     step_delta_z=heptad_delta_z*step_heptad_fraction
     height = heptad_delta_z * num_heptads
     
-    md['cutting.heptad_delta_z']=heptad_delta_z
-    md['cutting.helix_orientations']=helix_orientations
+    md['cutting.heptad_delta_z'] = heptad_delta_z
+    md['cutting.helix_orientations'] = helix_orientations
     
     bottoms = np.arange(highest_bottom, lowest_top, step_delta_z)
     #filter the bottoms that would not result in a full length protein
@@ -73,6 +80,7 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     
     #output the files
     truncator.make_dirs(out_dir)
+    files = []
     for bottom in bottoms:
         _from =  '%05.2f' % (bottom - tol_A)
         _to   =  '%05.2f' % (bottom + height + tol_A)
@@ -84,4 +92,39 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
         print(out_name, ": ", sel_str)
         cmd.save(out_name, sel_str)
         truncator.write_json(truncator.replace_extension(out_name,'.info') , md)
+        files.append(out_name)
 
+    return files
+
+
+def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None):
+    """Given a PDB with multiple chains, it changes the chains to A and B for interface evaluation. 
+    Takes a PDB and outputs a PDB.
+    """
+    if cmd is None:
+        import pymol
+        cmd =  pymol.cmd
+        cmd.do("delete all")
+
+    base_name = truncator.basename_noext(struct_name)
+    md = truncator.read_info_file(struct_name,".info")
+    md['regroup.new_chain_A'] = new_chain_A
+    md['regroup.new_chain_B'] = new_chain_B
+    cmd.do("delete all")
+    cmd.load(struct_name, object=base_name)
+
+    #A
+    for old_chain in new_chain_A:
+        cmd.alter(f"chain {old_chain}", f"chain='A'")
+
+    #B
+    for old_chain in new_chain_B:
+        cmd.alter(f"chain {old_chain}", f"chain='B'")
+
+    truncator.make_dirs(out_dir)
+    out_name = f"{out_dir}/{base_name}__gr{new_chain_A}-{new_chain_B}.pdb"
+
+    print(out_name)
+    cmd.save(out_name)
+    truncator.write_json(out_name.replace(".pdb",".info"), md)
+    return out_name
