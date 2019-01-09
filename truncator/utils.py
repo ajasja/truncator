@@ -86,3 +86,25 @@ def flatten_list(_list):
     """Flattens a list of lists"""
     from itertools import chain
     return list(chain.from_iterable(_list))
+
+
+import numpy as np
+def find_helices(sec_struct):
+    """Returns 0 based python slice convention"""
+
+    bits = np.array(sec_struct, dtype='S1') == b'H'
+    # make sure all runs of ones are well-bounded
+    bounded = np.hstack(([0], bits, [0]))
+    # get 1 at run starts and -1 at run ends
+    difs = np.diff(bounded)
+    run_starts = np.where(difs > 0)[0]
+    run_ends = np.where(difs < 0)[0] 
+    return np.dstack((run_starts,run_ends))[0]
+
+def python_to_pymol_range(_from,_to):
+    _from=_from+1
+    return (_from,_to)
+def list_to_pymol_sel_str(_list, join_char="+"):
+    _list_str = [str(ele) for ele in _list]
+    return join_char.join(_list_str)
+#list_to_pymol_sel_str([1,2,3])=="1+2+3"
