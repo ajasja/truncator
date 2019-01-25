@@ -97,10 +97,17 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     return files
 
 
-def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None):
+def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None, save_segi=True, out_name=None):
     """Given a PDB with multiple chains, it changes the chains to A and B for interface evaluation. 
     Takes a PDB and outputs a PDB.
     """
+    
+    repeated_chains = set(new_chain_A) & set(new_chain_B)
+    if len(repeated_chains) > 0:
+        raise ValueError(f"Chains: {repeated_chains} are in new_chain_A and new_chain_B")
+    
+
+
     if cmd is None:
         import pymol
         cmd =  pymol.cmd
@@ -113,16 +120,46 @@ def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None):
     cmd.do("delete all")
     cmd.load(struct_name, object=base_name)
 
+    all_chains = cmd.get_chains(base_name) 
+    new_chains_not_specified = set(all_chains) - set(new_chain_A) - set(new_chain_B)
+    if len(new_chains_not_specified) > 0:
+        raise ValueError(f"Chains: {new_chains_not_specified} have not been specified new_chain_A and new_chain_B")
+    new_chains_not_specified =  (set(new_chain_A) | set(new_chain_B)) -set(all_chains) 
+    if len(new_chains_not_specified) > 0:
+        print(f"Chains: {new_chains_not_specified} are found in the PDB but are not assigned to new chain A or B")
+
+    if "?" in all_chains or "!" in all_chains:
+        raise ValueError(f"? or ! can not be used as chain identifier, but is included in chains")
+
+    #save the old residus    
+    #cm = {}
+    #for for ch in all_chains:
+    #    model = cm.get_model(f"chain {ch}")
+    #    chain_residues = sorted(list(set([at.resi for at in  m.atom])), key=int)  
+    #    cm
+    #md['regroup.old_chain_mapping']
+
+    if save_segi: # Save CHAIN ids into segi
+        for ch in all_chains:
+            print(f"saving chain {ch}")
+            cmd.alter(f"chain {ch}", f"segi='{ch}'")
+
     #A
     for old_chain in new_chain_A:
-        cmd.alter(f"chain {old_chain}", f"chain='A'")
+        cmd.alter(f"chain {old_chain}", f"chain='!'")
 
     #B
     for old_chain in new_chain_B:
-        cmd.alter(f"chain {old_chain}", f"chain='B'")
+        cmd.alter(f"chain {old_chain}", f"chain='?'")
+
+    
+    cmd.alter(f"chain !", f"chain='A'")
+    cmd.alter(f"chain ?", f"chain='B'")
+    cmd.sort(base_name)
 
     truncator.make_dirs(out_dir)
-    out_name = f"{out_dir}/{base_name}__gr{new_chain_A}-{new_chain_B}.pdb"
+    if out_name is None:
+        out_name = f"{out_dir}/{base_name}__gr{new_chain_A}-{new_chain_B}.pdb"
 
     print(out_name)
     cmd.save(out_name)
