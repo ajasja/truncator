@@ -1,0 +1,81 @@
+<ROSETTASCRIPTS>
+<SCOREFXNS>
+  ### add Nov15 energy function with coordinate constraints
+  <ScoreFunction name="NOV15" weights="beta" >
+    <Reweight scoretype="coordinate_constraint" weight="1" />
+  </ScoreFunction>
+  <ScoreFunction name="VDW" weights="empty" >
+    <Reweight scoretype="fa_atr" weight="1.0" />
+  </ScoreFunction>
+  ### ADDED FOR SCORING FILTERS
+  <ScoreFunction name="TotalHydrophobic" weights="/home/fseeger/PPI_Benchmark/Design_Scripts/total_hydrophobic_weights.wts"/>
+</SCOREFXNS>
+
+<RESIDUE_SELECTORS>
+     
+    <Layer name="core" select_core="true"     use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    <Layer name="bndr" select_boundary="true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    <Layer name="surf" select_surface= "true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/>    
+    #sherry
+    Layer name="core" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_core="true" />
+    Layer name="bndr" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_boundary="true" />
+    Layer name="surf" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_surface="true" />
+
+    <Layer name="core_SASA" select_core="true"     use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>  
+    <Layer name="bndr_SASA" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/> 
+    <Layer name="surf_SASA" select_surface= "true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>    
+    ### select chain A
+    <Chain name="chainA" chains="A"/>
+    ### select chain B
+    <Chain name="chainB" chains="B"/>
+    ### select interface of chainB close within 8.0 A of chainA 
+    <Neighborhood name="interface_chA" selector="chainB" distance="8.0"/>
+    ### select interface of chainA close within 8.0 A of chainB 
+    <Neighborhood name="interface_chB" selector="chainA" distance="8.0"/>
+    ### select intersection of chain A and Chain B interface
+    <And name="AB_interface" selectors="interface_chA,interface_chB" />
+    ### select everything but the designable interface residues
+    <Not name="Not_interface" selector="AB_interface" />
+    ### select the core and the interface
+    <And name="core_and_interface" selectors="core,AB_interface" /> 
+    
+    <InterfaceByVector name="interface_by_vec" grp1_selector="chainA" grp2_selector="chainB"/>
+    <And name="core_and_interface_by_vec" selectors="interface_by_vec,core" />    
+
+
+</RESIDUE_SELECTORS>
+
+<SIMPLE_METRICS>
+	<SelectedResiduesPyMOLMetric name="AB_interface" residue_selector="AB_interface" custom_type="AB_interface" />
+    <SelectedResiduesPyMOLMetric name="core_and_interface" residue_selector="core_and_interface" custom_type="core_and_interface" />
+    <SelectedResiduesPyMOLMetric name="interface_by_vec" residue_selector="interface_by_vec" custom_type="interface_by_vec" />
+    <SelectedResiduesPyMOLMetric name="core_and_interface_by_vec" residue_selector="core_and_interface_by_vec" custom_type="core_and_interface_by_vec" />
+    
+    <SelectedResiduesPyMOLMetric name="chainA" residue_selector="chainA" custom_type="chainA" />
+    <SelectedResiduesPyMOLMetric name="chainB" residue_selector="chainB" custom_type="chainB" />
+    
+    <SelectedResiduesPyMOLMetric name="core" residue_selector="core" custom_type="core" />
+    <SelectedResiduesPyMOLMetric name="bndr" residue_selector="bndr" custom_type="bndr" />
+    <SelectedResiduesPyMOLMetric name="surf" residue_selector="surf" custom_type="surf" />
+    <SelectedResiduesPyMOLMetric name="core_SASA" residue_selector="core_SASA" custom_type="core_SASA" />
+    <SelectedResiduesPyMOLMetric name="bndr_SASA" residue_selector="bndr_SASA" custom_type="bndr_SASA" />
+    <SelectedResiduesPyMOLMetric name="surf_SASA" residue_selector="surf_SASA" custom_type="surf_SASA" />
+</SIMPLE_METRICS>
+
+
+<TASKOPERATIONS>
+</TASKOPERATIONS>
+<FILTERS>
+</FILTERS>
+
+<MOVERS>
+    <SwitchChainOrder name="set_chain_order" chain_order="12"/>
+    <RunSimpleMetrics name="run_metrics_selection" metrics="AB_interface,core_and_interface,interface_by_vec,core_and_interface_by_vec,chainA,chainB,core,bndr,surf,core_SASA,bndr_SASA,surf_SASA" prefix="" />
+</MOVERS>
+
+<PROTOCOLS>
+    <Add mover="set_chain_order" />
+    <Add mover="run_metrics_selection" />
+</PROTOCOLS>
+    <OUTPUT />
+</ROSETTASCRIPTS>

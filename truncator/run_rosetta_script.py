@@ -47,4 +47,4 @@ def run_rosetta_script(rosetta_bin, script_name, struct_name, out_dir,
     else:
         status = 0
         
-    return ScriptRunResult(log_file, score_file, pdb_file, status, cmd)    
+    return truncator.ScriptRunResult(log_file, score_file, pdb_file, status, cmd)    
