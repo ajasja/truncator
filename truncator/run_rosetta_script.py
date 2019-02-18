@@ -14,9 +14,9 @@ def run_rosetta_script(rosetta_bin, script_name, struct_name, out_dir,
     base_name = truncator.basename_noext(struct_name) 
 
     truncator.make_dirs(out_dir)
-    if score_file is None: score_file =  out_dir+"/"+base_name+".sc"
-    if log_file is None: log_file =    out_dir+"/"+base_name+".log"
-    if pdb_file is None: pdb_file =    out_dir+"/"+base_name+".pdb"
+    if score_file is None: score_file =  os.path.abspath(out_dir+"/"+base_name+".sc")
+    if log_file is None: log_file =    os.path.abspath(out_dir+"/"+base_name+".log")
+    if pdb_file is None: pdb_file =    os.path.abspath(out_dir+"/"+base_name+".pdb")
     
     if tee: 
         redir_str = '| tee'

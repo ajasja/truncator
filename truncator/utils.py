@@ -2,7 +2,8 @@
 import os
 import pandas as pd
 import numpy as np
-
+from glob import glob
+import truncator
 
 # taken from http://stackoverflow.com/a/11301781/952600
 try:
@@ -54,9 +55,13 @@ def read_file(filename):
         data = myfile.read()
     return data         
 
-def read_file_lines(filename):
+def read_file_lines(filename, trim=False, skip_comments=False):
     with open(filename, 'r') as myfile:
         lines = myfile.readlines()
+    if trim or skip_comments:
+        lines = [line.strip() for line in lines]
+    if skip_comments:
+        lines = [line for line in lines if not (line=='' or line.startswith('#'))]
     return lines 
 
 def write_file(filename, str):
@@ -240,10 +245,80 @@ def read_score_file(file_name, pdb_dir=None, verbose=False, load_seq=True, skipr
         df['seq'] = " "
     return df
 
-def read_score_files(file_names, pdb_dir=None, verbose=False, load_seq=True, skiprows=1):
+def read_score_files(file_names, pdb_dir=None, verbose=False, load_seq=True, skiprows=1, cache_file=None):
     dfs = []
+    
     for file_name in file_names:
         dfs.append(read_score_file(file_name, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows))
     dfs = pd.concat(dfs, sort=False)
     
     return dfs
+
+
+def read_score_files_with_cache(file_names, cache_file, pdb_dir=None, verbose=False, load_seq=False, skiprows=1, force_reload=False):
+    if os.path.exists(cache_file) and not force_reload:
+        dfs = pd.read_csv(cache_file, index_col=False)
+        return dfs
+    
+    dfs = read_score_files(file_names, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows)
+    
+    dfs.to_csv(cache_file, index=False)
+    return dfs
+
+
+def find_input(query, inputs, find_all=False):
+    """Finds the line containing the query string"""
+    res=[]
+    for inp in inputs:
+        if query in inp:
+            if find_all:
+                res.append(inp)
+            else:
+                return inp
+    
+    if find_all:
+        return res
+    else:
+        return None
+
+def find_unfinished_logs(adir):
+    logs = glob(adir+"/*.log")
+    result = []
+    for log in logs:
+        log_lines = truncator.read_file_lines(log, trim=True)
+        if truncator.find_input("no more batches to process...", log_lines)==None:
+            result.append(log)
+    return result
+
+def find_no_output_pdbs(adir, ignore_unfinished=True):
+    """Finds basenames that have a log file but no pdb result files"""
+    pdbs = glob(adir+"/*.pdb")
+    pdbs = [pdb.replace("_0001.pdb",".pdb").replace(".pdb","") for pdb in pdbs]
+    #print(pdbs)
+    logs = glob(adir+"/*.log")
+    logs = [log.replace(".log","") for log in logs]
+    
+    
+    #print(scs)
+    #find names that have a score file, but no pdb
+    result = set(logs)-set(pdbs)
+    if ignore_unfinished:
+        ulogs = find_unfinished_logs(adir)
+        ulogs = [log.replace(".log","") for log in ulogs]
+        result = result - set(ulogs)
+    return sorted(result)
+
+def clean_unfinished_logs(adir):
+    """Cleans unfinished logs"""
+    logs = truncator.find_unfinished_logs(adir)
+    import os
+    for log in logs:
+        os.remove(log)
+
+def lines_grep(pattern, lines):
+    import re
+    reg = re.compile(pattern)
+    return [l for l in lines if reg.match(l)]
+
+def pp_flags(cmd):
+    print(cmd.replace(" -", " \\\n-"))

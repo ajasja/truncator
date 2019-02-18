@@ -9,7 +9,7 @@ import pandas as pd
 import os
 
 
-def get_interface_info(file_name):
+def get_interface_info(file_name, raise_exception=False):
     ### read in out file and find interface residues
     with open(file_name,'r') as file:
         d = {}
@@ -41,7 +41,7 @@ def get_interface_info(file_name):
                 d['hbond_energy_IA'] = float(line.split(" ")[-1])
             if line.startswith('select'):
                 d['pymol_interface_selection_IA']=line
-    if d=={}:
+    if d=={} and raise_exception:
         raise Exception(f"Log file {file_name} has no interface info!")
     return d
 
@@ -61,16 +61,20 @@ def add_to_score_from_log(dirname=None, log_file=None, score_file=None, out_file
 
     if add_nstruc_label:
         d['decoy']=d['decoy']+"_0001"
-    interface = pd.DataFrame.from_records([d], index='decoy')
-    #print(score_file)
-
-    #score = pd.read_csv(score_file, low_memory=False, header=0, skiprows=1, sep = r'\s+', skipinitialspace=True, warn_bad_lines=False)
-    #score.drop(columns=['SCORE:'],inplace=True, errors='ignore')
-
     score = pd.read_json(score_file, lines=True)
-    ##take the last row and set index on description
-    score = score.iloc[[-1]].set_index('decoy', drop=False)
-    joined = score.join(interface, on="decoy")
+    if not d=={}:
+        interface = pd.DataFrame.from_records([d], index='decoy')
+        #print(score_file)
+
+        #score = pd.read_csv(score_file, low_memory=False, header=0, skiprows=1, sep = r'\s+', skipinitialspace=True, warn_bad_lines=False)
+        #score.drop(columns=['SCORE:'],inplace=True, errors='ignore')
+
+        
+        ##take the last row and set index on description
+        score = score.iloc[[-1]].set_index('decoy', drop=False)
+        joined = score.join(interface, on="decoy")
+    else:
+        joined = score
     print("Saving to: "+out_file)
     joined.to_json(out_file, orient='records', lines=True)
     return out_file

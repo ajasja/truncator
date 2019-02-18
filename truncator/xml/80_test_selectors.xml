@@ -38,11 +38,29 @@
     <Not name="Not_interface" selector="AB_interface" />
     ### select the core and the interface
     <And name="core_and_interface" selectors="core,AB_interface" /> 
+    <ResidueName name="polars" residue_name3="SER,THR,HIS,ASN,GLN,ASP,GLU,ARG,TRP,TYR" />
     
     <InterfaceByVector name="interface_by_vec" grp1_selector="chainA" grp2_selector="chainB"/>
     <And name="core_and_interface_by_vec" selectors="interface_by_vec,core" />    
+    <Or name="core_or_bndr" selectors="core,bndr"/>
+    <And name="core_bndr_and_interface_by_vec" selectors="interface_by_vec,core_or_bndr" />    
+    <And name="coreSASA_and_interface_by_vec" selectors="interface_by_vec,core_SASA" />  
+    <And name="surf_and_interface_by_vec" selectors="interface_by_vec,surf" />  
+    <And name="core_bndr_polars" selectors="core_or_bndr,polars"/>
+    <And name="core_polars" selectors="core,polars"/>
 
-
+    <HBond name="core_bndr_Hbonds"  residue_selector="core_bndr_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <HBond name="core_Hbonds"  residue_selector="core_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <HBond name="coreSASA_int_Hbonds"  residue_selector="coreSASA_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <And name="coreSASA_int_Hbonds_polar"  selectors="coreSASA_int_Hbonds,polars"  />
+    
+    <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
+    <And name="core_hbnet_residues" selectors="core,hbnet_residues"/>
+    <And name="core_hbnet_residues_chA" selectors="core_hbnet_residues,chainA"/>
+    <And name="core_hbnet_residues_chB" selectors="core_hbnet_residues,chainB"/>
 </RESIDUE_SELECTORS>
 
 <SIMPLE_METRICS>
@@ -50,7 +68,15 @@
     <SelectedResiduesPyMOLMetric name="core_and_interface" residue_selector="core_and_interface" custom_type="core_and_interface" />
     <SelectedResiduesPyMOLMetric name="interface_by_vec" residue_selector="interface_by_vec" custom_type="interface_by_vec" />
     <SelectedResiduesPyMOLMetric name="core_and_interface_by_vec" residue_selector="core_and_interface_by_vec" custom_type="core_and_interface_by_vec" />
-    
+    <SelectedResiduesPyMOLMetric name="core_bndr_and_interface_by_vec" residue_selector="core_bndr_and_interface_by_vec" custom_type="core_bndr_and_interface_by_vec" />
+    <SelectedResiduesPyMOLMetric name="core_bndr_polars" residue_selector="core_bndr_polars" custom_type="core_bndr_polars" />
+    <SelectedResiduesPyMOLMetric name="core_polars" residue_selector="core_polars" custom_type="core_polars" />
+ 
+    <SelectedResiduesPyMOLMetric name="core_bndr_Hbonds" residue_selector="core_bndr_Hbonds" custom_type="core_bndr_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="core_Hbonds" residue_selector="core_Hbonds" custom_type="core_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="coreSASA_int_Hbonds" residue_selector="coreSASA_int_Hbonds" custom_type="coreSASA_int_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="coreSASA_int_Hbonds_polar" residue_selector="coreSASA_int_Hbonds_polar" custom_type="coreSASA_int_Hbonds_polar" />
+
     <SelectedResiduesPyMOLMetric name="chainA" residue_selector="chainA" custom_type="chainA" />
     <SelectedResiduesPyMOLMetric name="chainB" residue_selector="chainB" custom_type="chainB" />
     
@@ -60,6 +86,11 @@
     <SelectedResiduesPyMOLMetric name="core_SASA" residue_selector="core_SASA" custom_type="core_SASA" />
     <SelectedResiduesPyMOLMetric name="bndr_SASA" residue_selector="bndr_SASA" custom_type="bndr_SASA" />
     <SelectedResiduesPyMOLMetric name="surf_SASA" residue_selector="surf_SASA" custom_type="surf_SASA" />
+
+    <SelectedResiduesPyMOLMetric name="hbnet_residues" residue_selector="hbnet_residues" custom_type="hbnet_residues" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues" residue_selector="core_hbnet_residues" custom_type="core_hbnet_residues" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues_chA" residue_selector="core_hbnet_residues_chA" custom_type="core_hbnet_residues_chA" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues_chB" residue_selector="core_hbnet_residues_chB" custom_type="core_hbnet_residues_chB" />
 </SIMPLE_METRICS>
 
 
@@ -70,12 +101,16 @@
 
 <MOVERS>
     <SwitchChainOrder name="set_chain_order" chain_order="12"/>
-    <RunSimpleMetrics name="run_metrics_selection" metrics="AB_interface,core_and_interface,interface_by_vec,core_and_interface_by_vec,chainA,chainB,core,bndr,surf,core_SASA,bndr_SASA,surf_SASA" prefix="" />
+    <HBNetStapleInterface find_only_native_networks="1" scorefxn="NOV15" name="hbnet_interf" hb_threshold="-0.1"  core_selector="core" show_task="0" store_subnetworks="0" verbose="1" no_heavy_unsats_allowed="1" write_network_pdbs="0" min_network_size="3"  min_core_res="2" min_unique_networks="1" write_cst_files="0"   use_aa_dependent_weights="true"  />
+    <RunSimpleMetrics name="run_metrics_selection" metrics="AB_interface,core_and_interface,interface_by_vec,core_and_interface_by_vec,chainA,chainB,core,bndr,surf,core_SASA,bndr_SASA,surf_SASA,core_bndr_and_interface_by_vec" prefix="" />
+    <RunSimpleMetrics name="run_metrics_selection1" metrics="core_bndr_Hbonds,core_Hbonds,coreSASA_int_Hbonds,coreSASA_int_Hbonds_polar,core_bndr_polars,core_polars,hbnet_residues,core_hbnet_residues,core_hbnet_residues_chA,core_hbnet_residues_chB" prefix="" />
 </MOVERS>
 
 <PROTOCOLS>
-    <Add mover="set_chain_order" />
+    Add mover="set_chain_order" />
+    <Add mover="hbnet_interf" />
     <Add mover="run_metrics_selection" />
+    <Add mover="run_metrics_selection1" />
 </PROTOCOLS>
     <OUTPUT />
 </ROSETTASCRIPTS>

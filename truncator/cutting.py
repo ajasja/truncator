@@ -8,11 +8,11 @@ import numpy as np
 from glob import glob
 import os
 
-import pymol
-from pymol import cmd
+#import pymol
+#from pymol import cmd
 
 
-def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_fraction=1/4*0.9, cmd=None):
+def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_fraction=1/4*0.9, cmd=None, verbose=False):
     """Cuts bundles to a number of heptades in steps of heptad fractions"""
     md = {}
     md['cutting.tol_A']=tol_A
@@ -89,7 +89,8 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
         md['cutting.to']=_to
         
         sel_str = f"byres (name ca and ss H and z>{_from} and z<{_to})"
-        print(out_name, ": ", sel_str)
+        if verbose:
+            print(out_name, ": ", sel_str)
         cmd.save(out_name, sel_str)
         truncator.write_json(truncator.replace_extension(out_name,'.info') , md)
         files.append(out_name)
@@ -97,7 +98,7 @@ def cut_bundles(struct_name, out_dir, tol_A=0.5, num_heptads=3, step_heptad_frac
     return files
 
 
-def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None, save_segi=True, out_name=None):
+def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None, save_segi=True, out_name=None, verbose=False):
     """Given a PDB with multiple chains, it changes the chains to A and B for interface evaluation. 
     Takes a PDB and outputs a PDB.
     """
@@ -141,7 +142,8 @@ def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None, sav
 
     if save_segi: # Save CHAIN ids into segi
         for ch in all_chains:
-            print(f"saving chain {ch}")
+            if verbose:
+                print(f"saving chain {ch}")
             cmd.alter(f"chain {ch}", f"segi='{ch}'")
 
     #A
@@ -161,7 +163,8 @@ def regroup_chains(struct_name, out_dir, new_chain_A, new_chain_B, cmd=None, sav
     if out_name is None:
         out_name = f"{out_dir}/{base_name}__gr{new_chain_A}-{new_chain_B}.pdb"
 
-    print(out_name)
+    if verbose:
+        print(out_name)
     cmd.save(out_name)
     truncator.write_json(out_name.replace(".pdb",".info"), md)
     return out_name

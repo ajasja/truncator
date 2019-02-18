@@ -24,7 +24,9 @@
 <RESIDUE_SELECTORS>
   <SecondaryStructure name="loops" ss="L"/>
   <Neighborhood name="around_loops" distance="6.0" selector="loops"/>
-  <Not name="not_around_loops" selector="around_loops"/>      
+  <Neighborhood name="far_around_loops" distance="20.0" selector="loops"/>
+  <Not name="not_around_loops" selector="around_loops"/>  
+  <Not name="far_from_loops" selector="far_around_loops"/>       
   <Layer name="hbnet_core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="false" core_cutoff="35" />
   <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
   And name="core_polar_aas" selectors="hbnet_core,polar_aas" />
@@ -53,16 +55,12 @@
       </LayerDesign> 
 
   ConsensusLoopDesign name="disallow_non_abego_aas"/>
-  <OperateOnResidueSubset name="only_loops_designable" selector="not_around_loops">
-    <RestrictToRepackingRLT/>
-  </OperateOnResidueSubset>
-  <OperateOnResidueSubset name="hbnets_fixed" selector="hbnet_residues">
-    <RestrictToRepackingRLT/>
-  </OperateOnResidueSubset>
+  <OperateOnResidueSubset name="only_loops_designable" selector="not_around_loops"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="hbnets_fixed" selector="hbnet_residues"><RestrictToRepackingRLT/></OperateOnResidueSubset>
   
-  <OperateOnResidueSubset name="polar_core_fixed" selector="polar_core">
-    <RestrictToRepackingRLT/>
-  </OperateOnResidueSubset>
+  <OperateOnResidueSubset name="polar_core_fixed" selector="polar_core"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="far_from_loops_frozen" selector="far_from_loops"><PreventRepackingRLT/></OperateOnResidueSubset>
+
 </TASKOPERATIONS>
 ###############################################
 # Filters
@@ -70,6 +68,9 @@
 <FILTERS>
     <worst9mer name="worst9mer" threshold="0.4" confidence="0"/>
     <SSPrediction name="psi_pred" confidence="0" cmd="/home/brunette/src/psipred3.21/runpsipred_csbuild_single" use_probability="0" use_svm="false"/>
+    <BuriedUnsatHbonds name="buns_sc_heavy" scorefxn="beta" use_sc_neighbors="false" use_reporter_behavior="true" report_sc_heavy_atom_unsats="true"  ignore_surface_res="true" print_out_info_to_pdb="false" confidence="0" residue_selector="core"/>
+
+buns_sc_heavy    
 </FILTERS>
 <MOVERS>
   <AddConstraintsToCurrentConformationMover name="add_cst" use_distance_cst="0" coord_dev="1" />
@@ -91,7 +92,7 @@
     allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA"  />
   <NearNativeLoopCloser name="make_one_loop" resBeforeLoop="104" resAfterLoop="109" loopLengthRange="2,5" resAdjustmentRangeSide1="-1,4" resAdjustmentRangeSide2="-1,4"
    allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA" output_all="1" />
-  
+
 
 </MOVERS>
 <PROTOCOLS>
