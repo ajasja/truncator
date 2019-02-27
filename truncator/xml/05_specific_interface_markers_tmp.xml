@@ -1,0 +1,184 @@
+<ROSETTASCRIPTS>
+<SCOREFXNS>
+  ### add Nov15 energy function with coordinate constraints
+  <ScoreFunction name="NOV15" weights="beta" >
+    <Reweight scoretype="coordinate_constraint" weight="1" />
+  </ScoreFunction>
+  <ScoreFunction name="VDW" weights="empty" >
+    <Reweight scoretype="fa_atr" weight="1.0" />
+  </ScoreFunction>
+  <ScoreFunction name="hpatch" weights="empty" >
+    <Reweight scoretype="hpatch" weight="1.0" />
+  </ScoreFunction>
+</SCOREFXNS>
+
+<RESIDUE_SELECTORS>
+     
+    <Layer name="core" select_core="true"     use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    <Layer name="bndr" select_boundary="true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    <Layer name="surf" select_surface= "true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/>    
+    #sherry
+    Layer name="core" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_core="true" />
+    Layer name="bndr" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_boundary="true" />
+    Layer name="surf" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_surface="true" />
+
+    <Layer name="core_SASA" select_core="true"     use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>  
+    <Layer name="bndr_SASA" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/> 
+    <Layer name="surf_SASA" select_surface= "true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>    
+    ### select chain A
+    <Chain name="chainA" chains="A"/>
+    ### select chain B
+    <Chain name="chainB" chains="B"/>
+    ### select interface of chainB close within 8.0 A of chainA 
+    <Neighborhood name="interface_chA" selector="chainB" distance="8.0"/>
+    ### select interface of chainA close within 8.0 A of chainB 
+    <Neighborhood name="interface_chB" selector="chainA" distance="8.0"/>
+    ### select intersection of chain A and Chain B interface
+    <And name="AB_interface" selectors="interface_chA,interface_chB" />
+    ### select everything but the designable interface residues
+    <Not name="Not_interface" selector="AB_interface" />
+    ### select the core and the interface
+    <And name="core_and_interface" selectors="core,AB_interface" /> 
+    <ResidueName name="polars" residue_name3="SER,THR,HIS,ASN,GLN,ASP,GLU,ARG,TRP,TYR" />
+    
+    <InterfaceByVector name="interface_by_vec" grp1_selector="chainA" grp2_selector="chainB"/>
+    <And name="core_and_interface_by_vec" selectors="interface_by_vec,core" />    
+    <Or name="core_or_bndr" selectors="core,bndr"/>
+    <And name="core_bndr_and_interface_by_vec" selectors="interface_by_vec,core_or_bndr" />    
+    <And name="coreSASA_and_interface_by_vec" selectors="interface_by_vec,core_SASA" />  
+    <And name="surf_and_interface_by_vec" selectors="interface_by_vec,surf" />  
+    <And name="core_bndr_polars" selectors="core_or_bndr,polars"/>
+    <And name="core_polars" selectors="core,polars"/>
+    <And name="core_SASA_polars" selectors="core_SASA,polars"/>
+
+    <HBond name="core_bndr_Hbonds"  residue_selector="core_bndr_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <HBond name="core_Hbonds"  residue_selector="core_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <HBond name="coreSASA_int_Hbonds"  residue_selector="coreSASA_and_interface_by_vec" include_bb_bb="false"
+      hbond_energy_cutoff="-0.7" scorefxn="NOV15" />
+    <And name="coreSASA_int_Hbonds_polar"  selectors="coreSASA_int_Hbonds,polars"  />
+    
+    <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
+    <And name="core_hbnet_residues" selectors="core,hbnet_residues"/>
+    <And name="core_hbnet_residues_chA" selectors="core_hbnet_residues,chainA"/>
+    <And name="core_hbnet_residues_chB" selectors="core_hbnet_residues,chainB"/>
+
+    <And name="core_chA" selectors="core,chainA"/>
+    <And name="core_chB" selectors="core,chainB"/>
+
+</RESIDUE_SELECTORS>
+
+<SIMPLE_METRICS>
+	<SelectedResiduesPyMOLMetric name="AB_interface" residue_selector="AB_interface" custom_type="AB_interface" />
+    <SelectedResiduesPyMOLMetric name="core_and_interface" residue_selector="core_and_interface" custom_type="core_and_interface" />
+    <SelectedResiduesPyMOLMetric name="interface_by_vec" residue_selector="interface_by_vec" custom_type="interface_by_vec" />
+    <SelectedResiduesPyMOLMetric name="core_and_interface_by_vec" residue_selector="core_and_interface_by_vec" custom_type="core_and_interface_by_vec" />
+    <SelectedResiduesPyMOLMetric name="core_bndr_and_interface_by_vec" residue_selector="core_bndr_and_interface_by_vec" custom_type="core_bndr_and_interface_by_vec" />
+    <SelectedResiduesPyMOLMetric name="core_bndr_polars" residue_selector="core_bndr_polars" custom_type="core_bndr_polars" />
+    <SelectedResiduesPyMOLMetric name="core_polars" residue_selector="core_polars" custom_type="core_polars" />
+    <SelectedResiduesPyMOLMetric name="core_SASA_polars" residue_selector="core_SASA_polars" custom_type="core_SASA_polars" />
+ 
+    <SelectedResiduesPyMOLMetric name="core_bndr_Hbonds" residue_selector="core_bndr_Hbonds" custom_type="core_bndr_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="core_Hbonds" residue_selector="core_Hbonds" custom_type="core_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="coreSASA_int_Hbonds" residue_selector="coreSASA_int_Hbonds" custom_type="coreSASA_int_Hbonds" />
+    <SelectedResiduesPyMOLMetric name="coreSASA_int_Hbonds_polar" residue_selector="coreSASA_int_Hbonds_polar" custom_type="coreSASA_int_Hbonds_polar" />
+
+    <SelectedResiduesPyMOLMetric name="chainA" residue_selector="chainA" custom_type="chainA" />
+    <SelectedResiduesPyMOLMetric name="chainB" residue_selector="chainB" custom_type="chainB" />
+    
+    <SelectedResiduesPyMOLMetric name="core" residue_selector="core" custom_type="core" />
+    <SelectedResiduesPyMOLMetric name="bndr" residue_selector="bndr" custom_type="bndr" />
+    <SelectedResiduesPyMOLMetric name="surf" residue_selector="surf" custom_type="surf" />
+    <SelectedResiduesPyMOLMetric name="core_SASA" residue_selector="core_SASA" custom_type="core_SASA" />
+    <SelectedResiduesPyMOLMetric name="bndr_SASA" residue_selector="bndr_SASA" custom_type="bndr_SASA" />
+    <SelectedResiduesPyMOLMetric name="surf_SASA" residue_selector="surf_SASA" custom_type="surf_SASA" />
+
+    <SelectedResiduesPyMOLMetric name="hbnet_residues" residue_selector="hbnet_residues" custom_type="hbnet_residues" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues" residue_selector="core_hbnet_residues" custom_type="core_hbnet_residues" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues_chA" residue_selector="core_hbnet_residues_chA" custom_type="core_hbnet_residues_chA" />
+    <SelectedResiduesPyMOLMetric name="core_hbnet_residues_chB" residue_selector="core_hbnet_residues_chB" custom_type="core_hbnet_residues_chB" />
+    <SelectedResidueCountMetric name="num_core_hbnet_residues_chA" residue_selector="core_hbnet_residues_chA" custom_type="num_core_hbnet_residues_chA" />
+    <SelectedResidueCountMetric name="num_core_hbnet_residues_chB" residue_selector="core_hbnet_residues_chB" custom_type="num_core_hbnet_residues_chB"/>
+</SIMPLE_METRICS>
+
+
+<TASKOPERATIONS>
+</TASKOPERATIONS>
+<FILTERS>
+
+</FILTERS>
+
+<MOVERS>
+    <TaskAwareMinMover name="min_sc" scorefxn="NOV15" bb="0" chi="1" />
+
+    <SwitchChainOrder name="chain1onlypre" chain_order="1"/>
+    <SwitchChainOrder name="chain2onlypre" chain_order="2"/>
+    ### Ever since Neighborhood residue selector changed, we need to score the pose after we split it
+    <ScoreMover name="scorepose" scorefxn="NOV15" verbose="false"/>
+
+    <SavePoseMover name="save_dimer"  restore_pose="0" reference_name="dimer_conformation"/>
+    <SavePoseMover name="restore_dimer"  restore_pose="1" reference_name="dimer_conformation"/>
+
+    <SavePoseMover name="save_chA"  restore_pose="0" reference_name="chainA_conf"/>
+    <SavePoseMover name="load_chA"  restore_pose="1" reference_name="chainA_conf"/>
+    
+    <SavePoseMover name="save_chB"  restore_pose="0" reference_name="chainB_conf"/>
+    <SavePoseMover name="load_chB"  restore_pose="1" reference_name="chainB_conf"/>
+
+    <ParsedProtocol name="makechain1only">
+      <Add mover_name="chain1onlypre"/>
+      <Add mover_name="scorepose"/>
+      <Add mover_name="min_sc"/>
+      <Add mover_name="save_chA"/>
+    </ParsedProtocol>
+    
+    <ParsedProtocol name="makechain2only">
+      <Add mover_name="chain2onlypre"/>
+      <Add mover_name="scorepose"/>
+      <Add mover_name="min_sc"/>
+      <Add mover_name="save_chB"/>
+    </ParsedProtocol> 
+
+    <SwitchChainOrder name="set_chain_order" chain_order="12"/>
+
+    #save pose before splitting it
+
+
+    <HBNetStapleInterface find_only_native_networks="1" allow_no_hbnets="true" scorefxn="NOV15" name="hbnet_interf" hb_threshold="-0.1"  core_selector="core" show_task="0" store_subnetworks="0" verbose="1" no_heavy_unsats_allowed="1" write_network_pdbs="0" min_network_size="0"  min_core_res="0" min_unique_networks="0" write_cst_files="0"   use_aa_dependent_weights="true"  min_percent_hbond_capacity="0.2"  max_unsat_Hpol="7"/>
+    <RunSimpleMetrics name="run_metrics_selection" metrics="AB_interface,core_and_interface,interface_by_vec,core_and_interface_by_vec,chainA,chainB,core,bndr,surf,core_SASA,bndr_SASA,surf_SASA,core_bndr_and_interface_by_vec" prefix="" />
+    <RunSimpleMetrics name="run_metrics_selection1" metrics="core_bndr_Hbonds,core_Hbonds,coreSASA_int_Hbonds,coreSASA_int_Hbonds_polar,core_bndr_polars,core_polars,hbnet_residues,core_hbnet_residues,core_hbnet_residues_chA,core_hbnet_residues_chB" prefix="" />
+    <RunSimpleMetrics name="run_metrics_selection2" metrics="num_core_hbnet_residues_chA,num_core_hbnet_residues_chB,core_SASA_polars" prefix="" />
+
+    <InterfaceAnalyzerMover name="interface_analyzer" scorefxn="NOV15" packstat="true" interface_sc="true" pack_input="false" 
+        pack_separated="true" interface="A_B" tracer="false" use_jobname="true"/>
+    
+
+</MOVERS>
+
+<FILTERS>
+
+</FILTERS>
+
+<PROTOCOLS>
+    
+    <Add mover="set_chain_order" />
+
+    <Add mover="save_dimer" />
+    <Add mover="makechain1only" />
+    <Add mover="restore_dimer" />    
+    <Add mover="makechain2only" />
+    <Add mover="restore_dimer" />
+    
+
+    <Add mover="hbnet_interf" />
+    <Add mover="run_metrics_selection" />
+    <Add mover="run_metrics_selection1" />
+    <Add mover="run_metrics_selection2" />
+    
+
+    
+    
+</PROTOCOLS>
+    <OUTPUT />
+</ROSETTASCRIPTS>

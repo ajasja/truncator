@@ -1,0 +1,119 @@
+<ROSETTASCRIPTS>
+  <SCOREFXNS>
+    <ScoreFunction name="hard_cart" weights="beta_cart">
+      <Reweight scoretype="coordinate_constraint" weight="2.0"/>
+      <Reweight scoretype="cart_bonded" weight="0.5"/>
+    </ScoreFunction>
+    <ScoreFunction name="hard_cart_prof" weights="beta_cart">
+      Reweight scoretype="coordinate_constraint" weight="2.0"/>
+      Reweight scoretype="cart_bonded" weight="0.5"/>
+      <Reweight scoretype="res_type_constraint" weight="2"/>
+    </ScoreFunction>
+    <ScoreFunction name="hard" weights="beta"/>
+    <ScoreFunction name="hard_cst" weights="beta_cst">
+     <Reweight scoretype="aa_composition" weight="1.0" />
+     <Reweight scoretype="res_type_constraint" weight="1.0"/>
+   </ScoreFunction>
+    <ScoreFunction name="hard_cst_upele" weights="beta_cst">
+      <Reweight scoretype="fa_elec" weight="1.4" />
+      <Reweight scoretype="hbond_sc" weight="2.0" />
+      <Reweight scoretype="res_type_constraint" weight="2"/>
+   </ScoreFunction>
+
+  </SCOREFXNS>
+<RESIDUE_SELECTORS>
+  <SecondaryStructure name="loops" ss="L"/>
+  <Neighborhood name="around_loops" distance="6.0" selector="loops"/>
+  <Neighborhood name="far_around_loops" distance="20.0" selector="loops"/>
+  <Not name="not_around_loops" selector="around_loops"/>  
+  <Not name="far_from_loops" selector="far_around_loops"/>      
+  <Layer name="hbnet_core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="false" core_cutoff="35" />
+  <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
+  And name="core_polar_aas" selectors="hbnet_core,polar_aas" />
+  Not name="not_core_polar_aas" selector="core_polar_aas" />
+  <ResidueName name="polar_aas" residue_name3="HIS,TYR,ASN,GLN,SER,THR" />
+  <And name="polar_core" selectors="polar_aas,hbnet_core"/>
+</RESIDUE_SELECTORS>
+<TASKOPERATIONS>
+      <IncludeCurrent name="current"/>
+      <LimitAromaChi2 name="arochi" />
+      <ExtraRotamersGeneric name="ex1_ex2" ex1="1" ex2="1"/>
+      <ExtraRotamersGeneric name="ex1" ex1="1"/>
+    
+    <LayerDesign name="layer_SASA" layer="core_boundary_surface_Nterm_Cterm" make_pymol_script="1" use_sidechain_neighbors="0" core="35" surface="40" >
+        <core>
+          <Helix append="M" />
+          <all exclude="M" />
+        </core>
+        <boundary>
+          <Helix exclude="W" />
+          <all exclude="MFH" />
+        </boundary>
+        <surface>
+          <all exclude="MH" />
+        </surface>
+      </LayerDesign> 
+
+  ConsensusLoopDesign name="disallow_non_abego_aas"/>
+  <OperateOnResidueSubset name="only_loops_designable" selector="not_around_loops"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="hbnets_fixed" selector="hbnet_residues"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  
+  <OperateOnResidueSubset name="polar_core_fixed" selector="polar_core"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="far_from_loops_frozen" selector="far_from_loops"><PreventRepackingRLT/></OperateOnResidueSubset>
+</TASKOPERATIONS>
+###############################################
+# Filters
+###############################################
+<FILTERS>
+    <worst9mer name="worst9mer" threshold="0.4" confidence="0"/>
+    <SSPrediction name="psi_pred" confidence="0" cmd="/home/brunette/src/psipred3.21/runpsipred_csbuild_single" use_probability="0" use_svm="false"/>
+</FILTERS>
+<MOVERS>
+  <AddConstraintsToCurrentConformationMover name="add_coord_cst" use_distance_cst="0" coord_dev="1" />
+  <ClearConstraintsMover name="clear_coord_cst"/>
+
+  <SwitchChainOrder name="set_chain_order4" chain_order="1234"/>
+  <SwitchChainOrder name="set_chain_order2" chain_order="12"/>
+  <PackRotamersMover name="only_design_loops" scorefxn="hard_cst" task_operations="only_loops_designable,polar_core_fixed,layer_SASA,ex1_ex2,arochi,current,far_from_loops_frozen" />
+  <FastDesign name="fast_design_loops" scorefxn="hard_cst" repeats="1" ramp_down_constraints="false" relaxscript="KillA2019" task_operations="only_loops_designable,polar_core_fixed,layer_SASA,ex1_ex2,arochi,current,far_from_loops_frozen" />
+  <MinMover name="hardmin_bb" scorefxn="hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="0" bb="1" bondangle="1" bondlength="1" jump="all" cartesian="1"/>
+  <MinMover name="hardmin_sconly" scorefxn="hard_cst" chi="1" bb="0" bondangle="0" bondlength="0" />
+  <MinMover name="hardmin_all" scorefxn="hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="1" bb="1" bondangle="1" bondlength="1" jump="all" cartesian="1"/>
+  ConnectChainsMover name=closer chain_connections="[A+D,B+C],[D+A,B+C],[A+D,C+B],[D+A,C+B],[A+C,B+D],[C+A,B+D],[A+C,D+B],[C+A,D+B]" loopLengthRange="2,5"/>
+  DumpPdb name="dump1" fname="/Users/sboyken/Desktop/HBNet/170912_testing_satisfier/dump1.pdb" scorefxn="hard_cart" tag_time="1"/>
+  HBNetStapleInterface find_only_native_networks="1" scorefxn="hard" name="hbnet_interf" hb_threshold="-0.1" min_helices_contacted_by_network="4" core_selector="hbnet_core" show_task="0" store_subnetworks="0" verbose="1" no_heavy_unsats_allowed="1" write_network_pdbs="0" min_network_size="4" max_unsat="0" min_core_res="2" min_unique_networks="1" write_cst_files="0" min_networks_per_pose="3" max_networks_per_pose="3" use_aa_dependent_weights="true" max_replicates_before_branch="3" min_connectivity="0.5" />
+  HBNetStapleInterface name="find_hbnet" find_only_native_networks="1" scorefxn="hard_cart_prof" hb_threshold="-0.1" min_helices_contacted_by_network="2" core_selector="hbnet_core" show_task="0" store_subnetworks="0" verbose="1" no_heavy_unsats_allowed="1" write_network_pdbs="0"  min_core_res="2"  /> 
+  <StructProfileMover name="genProfile" only_loops="true" />
+  #[A+B,C+D],[B+A,C+D],[A+B,D+C],[B+A,D+C],[C+D,A+B],[C+D,B+A],[D+C,A+B],[D+C,B+A]
+  <ConnectChainsMover name="make_loops" chain_connections="[A+B,C+D],[B+A,C+D],[A+B,D+C],[B+A,D+C]" 
+    loopLengthRange="2,5" resAdjustmentRangeSide1="-1,1" resAdjustmentRangeSide2="-1,1"
+    allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA"  />
+  <NearNativeLoopCloser name="make_one_loop" resBeforeLoop="104" resAfterLoop="109" loopLengthRange="2,5" resAdjustmentRangeSide1="-1,4" resAdjustmentRangeSide2="-1,4"
+   allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA" output_all="1" />
+  
+
+</MOVERS>
+<PROTOCOLS>
+
+
+
+
+  <Add mover="set_chain_order4"/>
+  <Add mover="genProfile"/>
+  
+
+  <Add mover="make_loops"/>
+
+    
+  <Add mover="set_chain_order2"/>
+  <Add mover="add_coord_cst"/>
+  <Add mover="fast_design_loops"/>
+  <Add mover="clear_coord_cst"/>
+
+  <Add mover="hardmin_sconly"/>
+  <Add mover="hardmin_all"/>
+  <Add filter="worst9mer"/>
+  <Add filter="psi_pred"/>
+ 
+</PROTOCOLS>
+</ROSETTASCRIPTS>

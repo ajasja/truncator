@@ -1,0 +1,501 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+	   <ScoreFunction name="beta" weights="beta"/>
+	   <ScoreFunction name="bbmin_hard_cart" weights="beta_cart">
+               <Reweight scoretype="coordinate_constraint" weight="2.0"/>
+               <Reweight scoretype="cart_bonded" weight="0.5"/>
+           </ScoreFunction>
+   	</SCOREFXNS>
+	<RESIDUE_SELECTORS>
+	   <Index name="init_start" resnums="3-22" />
+	   <Index name="start" resnums="8-50" />	###search for HBnets in this region of the chain
+	   <Index name="search_HBnet" resnums="8-50,69-111,130-172" error_on_out_of_bounds_index="false"/>
+	   <Not name="not_search_HBnet" selector="search_HBnet"/> 
+
+	   <Layer name="surface" select_core="false" select_boundary="false" select_surface="true" use_sidechain_neighbors="true"/>
+           <Layer name="boundary" select_core="false" select_boundary="true" select_surface="false" use_sidechain_neighbors="true"/>
+           <Layer name="core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="true"/>
+           <SecondaryStructure name="helix" overlap="0" minH="3" include_terminal_loops="false" use_dssp="true" ss="H" />
+           <SecondaryStructure name="sheet" overlap="0" minE="3" include_terminal_loops="false" use_dssp="true" ss="E" />
+           <SecondaryStructure name="loop" overlap="0" minH="3" minE="3" include_terminal_loops="true" use_dssp="true" ss="L" />
+
+	   <Layer name="hbnet_core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="true" core_cutoff="3.6" />
+           <Not name="not_hbnet_core" selector="core"/>
+
+    	   ###residue selectors for loops
+           <Neighborhood name="around_loops" distance="6.0" selector="loop"/>
+	   <Not name="not_around_loops" selector="around_loops"/>
+	</RESIDUE_SELECTORS>
+
+ 	<TASKOPERATIONS>
+	   <InitializeFromCommandline name="init"/>
+	   <IncludeCurrent name="current"/>
+	   <LimitAromaChi2 name="arochi" />
+	   ExtraRotamersGeneric name="ex1_ex2" ex1="1" ex2="1"/>
+	   ExtraRotamersGeneric name="ex1" ex1="1"/>
+
+	   ###TaskOperations for loops
+           <OperateOnResidueSubset name="only_loops_designable" selector="not_around_loops"> #assign sidechains for loops
+              <PreventRepackingRLT/>
+           </OperateOnResidueSubset>
+           <ConsensusLoopDesign name="disallow_non_abego_aas"/>
+
+	   <OperateOnResidueSubset name="loops_repack_only" selector="loop">
+               <RestrictToRepackingRLT/>
+           </OperateOnResidueSubset>
+
+	   ###TaskOperations for HBnets
+	   <OperateOnResidueSubset name="limit_HBNet_region" selector="not_search_HBnet"> #limits the region that HBnet will search
+              <PreventRepackingRLT/>
+           </OperateOnResidueSubset>      
+
+	   <DesignRestrictions name="layer_design">
+              <Action selector_logic ="surface AND helix" aas="ADEKRST"/>
+              <Action selector_logic="surface AND loop"   aas="DEGKNPQRST"/>
+              <Action selector_logic="boundary AND helix" aas="ADEIKLRSTV"/>
+              <Action selector_logic="boundary AND loop"  aas="ADEFGIKLMNPQRSTV"/>
+              <Action selector_logic="core AND helix"     aas="AFILMV"/>
+              <Action selector_logic="core AND loop"      aas="AFILPV"/>
+           </DesignRestrictions>
+
+	   <OperateOnResidueSubset name="hbnet_aas_core" selector="hbnet_core" >
+              <RestrictAbsentCanonicalAASRLT aas="STNHYWD"/> # aas allowed in core for HBNet
+           </OperateOnResidueSubset>
+           <OperateOnResidueSubset name="hbnet_aas_not_core" selector="not_hbnet_core" >
+              <RestrictAbsentCanonicalAASRLT aas="STNHYD"/> # aas allowed outside of core for HBNet
+           </OperateOnResidueSubset>
+           <OperateOnResidueSubset name="ex1_not_core" selector="not_hbnet_core" >
+              <ExtraRotamersGenericRLT ex1="1" />
+           </OperateOnResidueSubset>
+           <OperateOnResidueSubset name="ex1ex2_core" selector="hbnet_core" >
+              <ExtraRotamersGenericRLT ex1="1" ex2="1" />
+           </OperateOnResidueSubset>
+           <OperateOnResidueSubset name="ex1_core" selector="hbnet_core" >
+              <ExtraRotamersGenericRLT ex1="1" />
+           </OperateOnResidueSubset>
+ 	
+	</TASKOPERATIONS>
+ 	
+	<FILTERS>
+    		###filters for good loops?
+ 	</FILTERS>
+ 	
+	<MOVERS>
+	  <BundleGridSampler name="init_bgs1" scorefxn="beta" use_degrees="true" helix_length="24" reset="true" crick_params_file="alpha_helix_100" set_bondlengths="true" set_bondangles="true" set_dihedrals="true" max_samples="1000000" nstruct_mode="true">
+	     <Helix delta_omega0="0" invert="false" delta_omega1="%%delta_omega_1%%" r0="%%r_in_1%%" z1_offset="0" omega0="0" />
+             <Helix delta_omega0="120" invert="false" delta_omega1="%%delta_omega_2%%" r0="%%r_in_2%%" z1_offset="%%z1_offset_1%%" omega0="0" />
+             <Helix delta_omega0="240" invert="true" delta_omega1="%%delta_omega_3%%" r0="%%r_out_1%%" z1_offset="%%z1_offset_2%%" omega0="0" />
+          </BundleGridSampler>
+          <BundleGridSampler name="bgs1" scorefxn="beta" use_degrees="true" helix_length="58" reset="true" crick_params_file="alpha_helix_100" set_bondlengths="true" set_bondangles="true" set_dihedrals="true" max_samples="1000000" nstruct_mode="true">   
+	     <Helix delta_omega0="0" invert="false" delta_omega1="%%delta_omega_1%%" r0="%%r_in_1%%" z1_offset="0" omega0="0" />
+             <Helix delta_omega0="120" invert="false" delta_omega1="%%delta_omega_2%%" r0="%%r_in_2%%" z1_offset="%%z1_offset_1%%" omega0="0" />
+             <Helix delta_omega0="240" invert="true" delta_omega1="%%delta_omega_3%%" r0="%%r_out_1%%" z1_offset="%%z1_offset_2%%" omega0="0" />
+     	  </BundleGridSampler>
+	   <DeclareBond name="add_termini1" add_termini="true" atom1="C" atom2="N" res1="1" res2="2" />
+
+      	   ###close loops ###
+           <SwitchChainOrder name="name_chains" chain_order="123"/> ###need this so that closer knows which chains are which
+           <ConnectChainsMover name="closer" chain_connections="[A+C+B],[B+C+A]" loopLengthRange="2,4"/> 
+           <PackRotamersMover name="only_design_loops" scorefxn="beta" task_operations="init,arochi,only_loops_designable,layer_design,disallow_non_abego_aas" />
+
+	   # for minimizing backbone if needed (after loop closure or stacking)
+            <AddConstraintsToCurrentConformationMover name="add_cst" use_distance_cst="0" coord_dev="2.0" CA_only="true"/>
+            <ClearConstraintsMover name="clearconstraints"/>
+            <MinMover name="hardmin_bb" scorefxn="bbmin_hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="0" bb="1" bondangle="1" bondlength="1" jump="all" cartesian="1"/> jump=ALL is default, should be fine for monomer or oligomer
+            <MinMover name="hardmin_sconly" scorefxn="beta" chi="1" bb="0" bondangle="0" bondlength="0" />
+
+	<HBNetStapleInterface scorefxn="beta" name="init_hbnet_interf" hb_threshold="-0.6" minimize="false" min_helices_contacted_by_network="3" start_selector="init_start" core_selector="hbnet_core" show_task="false" store_subnetworks="0" verbose="false" write_network_pdbs="false" min_network_size="4" max_unsat_Hpol="1" min_core_res="2" min_unique_networks="2" monte_carlo_seed_must_be_buried="true" write_cst_files="0" use_aa_dependent_weights="true" monte_carlo_branch="true" total_num_mc_runs="200000" min_percent_hbond_capacity="0.55" at_least_one_net_fully_satisfied="true" task_operations="arochi,hbnet_aas_core,hbnet_aas_not_core,ex1ex2_core,ex1_not_core" />
+	
+      #HBNet Mover definition	#####temporarily removed Q from design_residuestart_selector="init_start" s
+      <HBNetStapleInterface scorefxn="beta" all_helical_interfaces="true" name="hbnet_interf" hb_threshold="-0.6" minimize="false" min_helices_contacted_by_network="3" start_selector="start" core_selector="hbnet_core" show_task="false" store_subnetworks="0" verbose="false" write_network_pdbs="false" min_network_size="4" max_unsat_Hpol="1" min_core_res="2" min_unique_networks="2" monte_carlo_seed_must_be_buried="true" write_cst_files="0" use_aa_dependent_weights="true" monte_carlo_branch="true" total_num_mc_runs="1000000" min_percent_hbond_capacity="0.55" min_networks_per_pose="2" max_networks_per_pose="4" min_unique_combined_networks="2" at_least_one_net_w_aromatic_sc="false" at_least_one_net_fully_satisfied="true" task_operations="arochi,hbnet_aas_core,hbnet_aas_not_core,limit_HBNet_region,ex1ex2_core,ex1_not_core,loops_repack_only" />
+
+      ###Packing design is inside MPM
+      <MultiplePoseMover name="MPM_design" max_input_poses="50">
+        <ROSETTASCRIPTS>
+          <SCOREFXNS>
+              <ScoreFunction name="hard" weights="beta"/>
+              <ScoreFunction name="hard_cst" weights="beta_cst" />
+              <ScoreFunction name="hard_cart" weights="beta_cart"/>
+              <ScoreFunction name="soft_cst" weights="beta_soft"> 
+                <Reweight scoretype="atom_pair_constraint" weight="1.0" />
+              </ScoreFunction>
+              <ScoreFunction name="beta_aa_comp" weights="beta_cst" >
+                <Reweight scoretype="aa_composition" weight="1.0" />
+              </ScoreFunction>
+              <ScoreFunction name="up_ele" weights="beta_cst" >
+                <Reweight scoretype="fa_elec" weight="1.4"/>
+                <Reweight scoretype="hbond_sc" weight="2.0" />
+              </ScoreFunction>
+          </SCOREFXNS>
+          <RESIDUE_SELECTORS>
+	     <SecondaryStructure name="helix" overlap="0" minH="3" include_terminal_loops="false" use_dssp="true" ss="H" />
+             <SecondaryStructure name="sheet" overlap="0" minE="3" include_terminal_loops="false" use_dssp="true" ss="E" />
+             <SecondaryStructure name="loop" overlap="0" minH="3" minE="3" include_terminal_loops="true" use_dssp="true" ss="L" />
+            
+             #Recapitulate LayerDesign using sidechain_neighbors
+	     <Layer name="surface" select_core="false" select_boundary="false" select_surface="true" use_sidechain_neighbors="true"/>
+             <Layer name="boundary" select_core="false" select_boundary="true" select_surface="false" use_sidechain_neighbors="true"/>
+             <Layer name="core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="true" core_cutoff="4.2"/>
+	     <Not name="not_core" selector="core"/>
+	     <Not name="not_boundary" selector="boundary"/>
+	     <Not name="not_surface" selector="surface"/>
+
+             #Recapitulate LayerDesign using SASA
+             <Layer name="surface_SASA" select_core="false" select_boundary="false" select_surface="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/> #35 or 30?
+             <Layer name="boundary_SASA" select_core="false" select_boundary="true" select_surface="false" use_sidechain_neighbors="false" core_cutoff="30" surface_cutoff="45"/> #core_cutof="30" to catch polars that snake to core during fdes
+             <Layer name="core_SASA" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45" />  #35 or 30?
+	     <Not name="not_core_SASA" selector="core_SASA"/>
+             <Not name="not_boundary_SASA" selector="boundary_SASA"/>
+             <Not name="not_surface_SASA" selector="surface_SASA"/>
+
+	     #Recapitulate LayerDesign using SASA with a 42.5 surface cutoff
+             <Layer name="surface_end" select_core="false" select_boundary="false" select_surface="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="42.5"/>
+             <Layer name="boundary_end" select_core="false" select_boundary="true" select_surface="false" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="42.5"/> #
+             <Layer name="core_end" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="42.5" />
+	     <Not name="not_core_end" selector="core_end"/>
+             <Not name="not_boundary_end" selector="boundary_end"/>
+             <Not name="not_surface_end" selector="surface_end"/>
+
+	     <Layer name="hbnet_core" select_core="true" select_boundary="false" select_surface="false" use_sidechain_neighbors="true" core_cutoff="3.6" />
+             <Not name="not_hbnet_core" selector="core"/>
+
+	     <Layer name="pick_core_and_boundary_SASA" select_core="true" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45" />
+             <Layer name="pick_core_and_boundary_SASA_end" select_core="true" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="42.5" />
+
+             ###residue selectors for loops
+             Neighborhood name="around_loops" distance="6.0" selector="loop"/> should be 5.0 or 6.0?
+             Not name="not_around_loops" selector="around_loops"/>
+             
+	     ResidueName name="polar_aas" residue_name3="SER,THR,ASN,GLN,HIS,TYR,TRP,ASP" />
+             And name="hbnets_around_loops" selectors="around_loops,polar_aas"/>
+            
+	     #ensure HBNet residues do not get designed away
+             <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
+             # for "network_holes"   
+	     <Neighborhood name="around_hbnet" selector="hbnet_residues" distance="5.0" />
+             <And name="core_around_hbnet" selectors="hbnet_core,around_hbnet"/> # be sure to use hbnet_core here
+               
+	     #for filters 
+                <Chain name="chain_a" chains="A"/> ##with loops designed, it's all chain A
+                Chain name="chain_b" chains="B"/>
+                Chain name="chain_c" chains="C"/>
+                InterfaceByVector name="AB_interface" grp1_selector="chain_a" grp2_selector="chain_b"/> ###how do we get interface of all 3 chains???
+                <ResidueName name="LIV" residue_name3="VAL,ILE,LEU" />
+                <And name="a_LIV" selectors="chain_a,LIV"/>
+                And name="b_LIV" selectors="chain_b,LIV"/>
+                And name="c_LIV" selectors="chain_c,LIV"/>
+                And name="AB_interface_LIV" selectors="AB_interface,LIV"/> ####depending on AB_interface
+                <Not name="not_chain_a_LIV" selector="a_LIV"/>
+                Not name="not_chain_b_LIV" selector="b_LIV"/>
+                Not name="not_chain_c_LIV" selector="c_LIV"/>
+                Not name="not_AB_interface_LIV" selector="AB_interface_LIV"/>
+
+                <ResidueName name="boundary_polar_aa_types" residue_name3="SER,THR,HIS,ASN,GLN,ASP,GLU,ARG" />
+                <And name="boundary_polars" selectors="boundary_SASA,boundary_polar_aa_types" />
+                <ResidueName name="ala_and_met_and_phe" residue_name3="ALA,MET,PHE" />
+                <Or name="fdes_res_to_design" selectors="boundary_polars,ala_and_met_and_phe" />
+                <Not name="fdes_no_design" selector="fdes_res_to_design" />
+                <And name="a_core" selectors="chain_a,core_SASA"/>
+                And name="b_core" selectors="chain_b,core_SASA"/>
+                And name="c_core" selectors="chain_c,core_SASA"/>
+
+          </RESIDUE_SELECTORS>
+          <TASKOPERATIONS>
+           	<InitializeFromCommandline name="init"/> # needed if reading in multicool annealer or oth things from command line
+	        <IncludeCurrent name="current"/>
+                <LimitAromaChi2 name="arochi" />
+                <ExtraRotamersGeneric name="ex1_ex2" ex1="1" ex2="1"/>
+                <ExtraRotamersGeneric name="ex1" ex1="1"/>
+
+		# layer design with sidechain neighbors
+	        <DesignRestrictions name="layer_design">
+                   <Action selector_logic="surface AND helix" aas="ADEKRST"/>
+                   <Action selector_logic="surface AND loop"   aas="NDSTEGKPQR"/>
+                   <Action selector_logic="boundary AND helix" aas="AEIKLSTV"/>  No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="boundary AND loop"  aas="ADEGIKLNPQRSTV"/>
+                   <Action selector_logic="core AND helix"     aas="AFILMV"/> # No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="core AND loop"      aas="AFGILPV"/>
+                </DesignRestrictions>
+
+                # layer design with SASA
+                <DesignRestrictions name="layer_design_SASA">
+                   <Action selector_logic ="surface_SASA AND helix" aas="ADEKRST"/>
+                   <Action selector_logic="surface_SASA AND loop"   aas="NDSTEGKPQR"/>
+                   <Action selector_logic="boundary_SASA AND helix" aas="AEIKLSTV"/>  No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="boundary_SASA AND loop"  aas="ADEGIKLNPQRSTV"/>
+                   <Action selector_logic="core_SASA AND helix"     aas="AFILMV"/> # No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="core_SASA AND loop"      aas="AFGILPV"/>
+                </DesignRestrictions>
+
+                # layer design with SASA radius that we want at end for eliminating buried polars in boudnary and hydrophobics on surface
+                <DesignRestrictions name="layer_design_end">
+                   <Action selector_logic ="surface_end AND helix" aas="ADEKRST"/>
+                   <Action selector_logic="surface_end AND loop"   aas="NDSTEGKPQR"/>
+                   <Action selector_logic="boundary_end AND helix" aas="AEIKLSTV"/>  No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="boundary_end AND loop"  aas="ADEGIKLNPQRSTV"/>
+                   <Action selector_logic="core_end AND helix"     aas="AFILMV"/> # No Trp or Tyr unless part of an HBNet!
+                   <Action selector_logic="core_end AND loop"      aas="AFGILPV"/>
+                </DesignRestrictions>
+
+		<OperateOnResidueSubset name="loops_repack_only" selector="loop">
+                  <RestrictToRepackingRLT/>
+                </OperateOnResidueSubset>
+
+		# for designing each layer separately; make everything outside that layer PreventRepacking
+                <OperateOnResidueSubset name="design_core" selector="not_core">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_boundary" selector="not_boundary">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_surface" selector="not_surface">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_core_SASA" selector="not_core_SASA">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_boundary_SASA" selector="not_boundary_SASA">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_surface_SASA" selector="not_surface_SASA">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_boundary_end" selector="not_boundary_end"> 
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="design_surface_end" selector="not_surface_end"> 
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+
+                # For fast design
+                <OperateOnResidueSubset name="fdes_repack_only" selector="fdes_no_design" >
+                  <RestrictToRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="redesign_ala_met_phe" selector="ala_and_met_and_phe" >
+                  <RestrictAbsentCanonicalAASRLT aas="AMILVF" />
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="redesign_boundary_polars" selector="boundary_polars" >
+                  <RestrictAbsentCanonicalAASRLT aas="AVLIMSTK" />
+                </OperateOnResidueSubset>
+
+                <OperateOnResidueSubset name="hbnet_task" selector="hbnet_residues"> ###don't mess with hbnets
+                  <RestrictToRepackingRLT/>
+                </OperateOnResidueSubset>
+
+		<ConsensusLoopDesign name="disallow_non_abego_aas"/>
+
+                <RestrictToRepacking name="repack_only" />
+
+                # used for filters
+		<OperateOnCertainResidues name="ILV"> ###How do I make this and downstream stuff compatible
+                  <NoResFilter>
+                    <ResidueName3Is name3="ILE,LEU,VAL"/>
+                  </NoResFilter>
+                  <PreventRepackingRLT/>
+                </OperateOnCertainResidues>
+
+                <OperateOnCertainResidues name="aro_apolar">
+                  <NoResFilter>
+                    <ResidueType aromatic="1" apolar="1" polar="0" charged="0"/>
+                  </NoResFilter>
+                  <PreventRepackingRLT/>
+                </OperateOnCertainResidues>
+
+                <OperateOnResidueSubset name="A_ILV" selector="not_chain_a_LIV"> ###With loops designed it's all chain A
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+<!--                <OperateOnResidueSubset name="B_ILV" selector="not_chain_b_LIV">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                <OperateOnResidueSubset name="C_ILV" selector="not_chain_c_LIV">
+                  <PreventRepackingRLT/>
+                </OperateOnResidueSubset>
+                OperateOnResidueSubset name="AB_interface_ILV" selector="not_AB_interface_LIV">
+                  PreventRepackingRLT/>
+                /OperateOnResidueSubset> -->
+          </TASKOPERATIONS>
+          <FILTERS>
+                <PreProline name="prepro" use_statistical_potential="0" />
+                <ScoreType name="scorefilter" scorefxn="hard_cst" score_type="total_score" threshold="0.0" confidence="1" />
+                EnzScore name="cst_score" score_type="cstE" scorefxn="hard_cst_cord" whole_pose="1" energy_cutoff="3" confidence="0"/>
+                BuriedUnsatHbonds name="uhb" scorefxn="hard_cst" cutoff="6" confidence="1"/>
+                BuriedUnsatHbonds2 name="uhb2" scorefxn="hard_cst" cutoff="6" AHD_cutoff="90" confidence="1"/>
+                <ResidueCount name="ala_count" max_residue_count="30" residue_types="ALA" confidence="0"/>
+                <ResidueCount confidence="0" name="TYR" residue_types="TYR"/>
+                <ResidueCount confidence="0" name="TRP" residue_types="TRP"/>
+                <ResidueCount confidence="0" name="PHE" residue_types="PHE"/>
+                <ResidueCount confidence="0" name="MET" residue_types="MET"/>
+                <ResidueCount confidence="0" name="HIS" residue_types="HIS"/>
+		<ResidueCount name="init_chainA_ILVF_count" min_residue_count="15" residue_types="ILE,LEU,VAL,PHE" residue_selector="chain_a" confidence="1"/> ##with loops designed, it's all chain A
+                <ResidueCount name="chainA_ILVF_count" min_residue_count="20" residue_types="ILE,LEU,VAL,PHE" residue_selector="chain_a" confidence="1"/> ##with loops designed, it's all chain A
+                ResidueCount name="chainB_ILVF_count" min_residue_count="5" residue_types="ILE,LEU,VAL,PHE" residue_selector="chain_b" confidence="1"/>
+                ResidueCount name="chainC_ILVF_count" min_residue_count="5" residue_types="ILE,LEU,VAL,PHE" residue_selector="chain_c" confidence="1"/>
+                <ResidueCount confidence="0" min_residue_count="5" name="prob_homodimerize_A" residue_selector="a_core" residue_types="HIS,PHE,TYR,TRP"/>
+                ResidueCount confidence="0" min_residue_count="5" name="prob_homodimerize_B" residue_selector="b_core" residue_types="HIS,PHE,TYR,TRP"/>
+                ResidueCount confidence="0" min_residue_count="5" name="prob_homodimerize_C" residue_selector="c_core" residue_types="HIS,PHE,TYR,TRP"/>
+                <AverageDegree name="AveDeg_A_ILV" threshold="0" task_operations="A_ILV" distance_threshold="10" confidence="0"/>
+                AverageDegree name="AveDeg_B_ILV" threshold="0" task_operations="B_ILV" distance_threshold="10" confidence="0"/>
+                AverageDegree name="AveDeg_C_ILV" threshold="0" task_operations="C_ILV" distance_threshold="10" confidence="0"/>
+                AverageDegree name="AveDeg_AB_interface_ILV" threshold="0" task_operations="AB_interface_ILV" distance_threshold="10" confidence="0"/>
+                <AverageDegree name="AveDeg_ILV" threshold="0" task_operations="ILV" distance_threshold="10" confidence="0"/>
+                <AverageDegree name="AveDeg_aro_apolar" threshold="0" task_operations="aro_apolar" distance_threshold="10" confidence="0"/>
+                <SSShapeComplementarity name="init_ss_sc" verbose="0" loops="0" helices="1" confidence="1" min_sc="0.47"/> # best are > 0.7 cutoff
+		<SSShapeComplementarity name="ss_sc" verbose="0" loops="0" helices="1" confidence="1" min_sc="0.6"/> # best are > 0.7 cutoff
+                AtomicContactCount name="atomcount_A_ILV" partition="none" task_operations="A_ILV" distance="4.5" normalize_by_sasa="0" confidence="0"/>
+                AtomicContactCount name="atomcount_B_ILV" partition="none" task_operations="B_ILV" distance="4.5" normalize_by_sasa="0" confidence="0"/>
+                AtomicContactCount name="atomcount_C_ILV" partition="none" task_operations="C_ILV" distance="4.5" normalize_by_sasa="0" confidence="0"/>
+                AtomicContactCount name="atomcount_AB_interface_ILV" partition="none" task_operations="AB_interface_ILV" distance="4.5" normalize_by_sasa="0" confidence="0"/>
+                AtomicContactCount name="atomcount_ILV" partition="jump" task_operations="ILV" distance="4.5" normalize_by_sasa="0" confidence="0"/>  ## Is this relevant??????
+                AtomicContactCount name="atomcount_norm_aro_apolar" partition="jump" task_operations="aro_apolar" distance="4.5" normalize_by_sasa="1" confidence="0"/> ## Is this relevant??????
+                  #ignore bb heavy just in case; only want to assess HBnet sc first
+			use_hbnet_behavior will fail if heavy unsats, or if Hpol unstas above cutoff
+                <BuriedUnsatHbonds name="new_buns_HBNet" scorefxn="hard" cutoff="4" use_hbnet_behavior="true" print_out_info_to_pdb="true" ignore_surface_res="true" residue_surface_cutoff="20.0" ignore_bb_heavy_unsats="true" residue_selector="hbnet_residues" confidence="1"/>
+                <BuriedUnsatHbonds name="new_buns_sc_heavy" scorefxn="hard" cutoff="0" use_reporter_behavior="true" report_sc_heavy_atom_unsats="true" print_out_info_to_pdb="true" ignore_surface_res="true" residue_surface_cutoff="20.0" confidence="1"/>
+                <BuriedUnsatHbonds name="new_buns_bb_heavy" scorefxn="hard" cutoff="3" use_reporter_behavior="true" report_bb_heavy_atom_unsats="true" print_out_info_to_pdb="true" ignore_surface_res="true" residue_surface_cutoff="20.0" confidence="1"/>
+                InterfaceHoles name="interfacehole" jump="1" threshold="200" confidence="0"/>
+                # does this always pass?
+                <CavityVolume name="cav_vol" />
+                <ExposedHydrophobics name="exposedhydrop" sasa_cutoff="20" threshold="0" confidence="0"/>
+                <Holes name="network_holes" threshold="0.0" residue_selector="core_around_hbnet" normalize_per_atom="true" exclude_bb_atoms="true" confidence="1"/>
+              </FILTERS>
+          <MOVERS>
+            
+            # removing disallow_non_abego_aas; we'll want to design loops first and then make them repack only during downstream design
+            <PackRotamersMover name="softpack_all" scorefxn="soft_cst" task_operations="init,current,arochi,layer_design,loops_repack_only,hbnet_task"/>
+            <PackRotamersMover name="softpack_core" scorefxn="soft_cst" task_operations="init,design_core,current,arochi,layer_design,loops_repack_only,hbnet_task"/>
+	    <PackRotamersMover name="softpack_boundary" scorefxn="soft_cst" task_operations="init,design_boundary,current,arochi,layer_design,loops_repack_only,hbnet_task"/>
+	    <PackRotamersMover name="softpack_surface" scorefxn="soft_cst" task_operations="init,design_surface,current,arochi,layer_design,loops_repack_only,hbnet_task"/>
+            <PackRotamersMover name="hardpack_core" scorefxn="hard_cst" task_operations="init,design_core_SASA,current,arochi,ex1_ex2,layer_design_SASA,loops_repack_only,hbnet_task"/>
+	    <PackRotamersMover name="hardpack_boundary" scorefxn="hard_cst" task_operations="init,design_boundary_SASA,current,arochi,ex1_ex2,layer_design_SASA,loops_repack_only,hbnet_task"/>
+	    <PackRotamersMover name="hardpack_surface" scorefxn="up_ele" task_operations="init,design_surface_SASA,current,arochi,layer_design_SASA,loops_repack_only,hbnet_task"/> # don't need ex1 here
+	    <PackRotamersMover name="hardpack_surface_end" scorefxn="up_ele" task_operations="init,design_surface_end,current,arochi,ex1,layer_design_end,disallow_non_abego_aas,hbnet_task"/> # let loops be designed here
+
+	    <MinMover name="hardmin_sconly" scorefxn="hard_cst" chi="1" bb="0" bondangle="0" bondlength="0" />
+            <MinMover name="hardmin_cart" scorefxn="hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="1" bb="1" bondangle="1" bondlength="1" jump="ALL" cartesian="1"/> jump=ALL is default, should be fine for monomer or oligomer
+            # repack without HBNet constraints to see if the networks stay put
+            <PackRotamersMover name="repack" scorefxn="hard" task_operations="init,current,arochi,ex1_ex2,repack_only" />
+
+            <AddConstraintsToCurrentConformationMover name="add_cst" use_distance_cst="0" coord_dev="2.0" CA_only="true"/>
+            <ClearConstraintsMover name="clearconstraints"/>
+
+	    AddCompositionConstraintMover name="add_comp_file" filename="/gscratch/baker/zibochen/scripts/weights/bundle_constraint.comp" selector="pick_core_and_boundary_SASA" />
+            <AddCompositionConstraintMover name="add_comp_file" filename="/home/sboyken/aa_comp_files/bundle_constraint.comp" selector="pick_core_and_boundary_SASA" /> ####hyak?
+            
+            # WE DO NOT WANT LAYER DESIGN DURING FAST DESIGN HERE; let loops be designed here
+            <FastDesign name="fdes1" scorefxn="beta_aa_comp" repeats="1" ramp_down_constraints="false" task_operations="init,redesign_ala_met_phe,redesign_boundary_polars,fdes_repack_only,current,arochi,disallow_non_abego_aas,hbnet_task" />
+            InterfaceAnalyzerMover name="interface_analyzer" scorefxn="hard_cst" packstat="1" pack_input="0" pack_separated="1" interface_sc="1"/>
+            <ClearCompositionConstraintsMover name="clear_aa_comp_cst" />
+            Superimpose name="align"/> 
+            <GenericMonteCarlo name="fdes_gmc" filter_name="new_buns_sc_heavy" sample_type="low" mover_name="fdes1" trials="5" >
+              <Filters>
+                <AND filter_name="ss_sc" sample_type="high" />
+              </Filters>
+            </GenericMonteCarlo>
+		
+	    <DumpPdb name="dump1" fname="dump1.pdb" scorefxn="hard_cst" tag_time="1"/>
+            <DumpPdb name="dump2" fname="dump2.pdb" scorefxn="hard_cst" tag_time="1"/>
+	    <DumpPdb name="dump3" fname="dump3.pdb" scorefxn="hard_cst" tag_time="1"/>
+	    <DumpPdb name="dump4" fname="dump4.pdb" scorefxn="hard_cst" tag_time="1"/>
+	    <DumpPdb name="dump5" fname="dump5.pdb" scorefxn="hard_cst" tag_time="1"/>
+	  </MOVERS> 
+          <PROTOCOLS>
+            # loops are initially poly-VAL, design the loops based on ABEGO, layer_design, and keeping the h-bond networks in place
+
+                We need to design away any input residues that may prevent optimal core packing
+                Add mover="softpack_all"/>
+                <Add mover="softpack_core"/>
+                <Add mover="softpack_boundary"/>
+                <Add mover="softpack_surface"/>
+                <Add mover="hardmin_sconly"/>
+                <Add mover="hardpack_core"/>
+                <Add mover="hardpack_boundary"/>
+                <Add mover="hardpack_surface"/>
+		
+		Add mover="dump1"/>
+
+                ###potentially add filters here to remove really bad stuff before fast design
+		<Add filter="init_chainA_ILVF_count"/> # if not > 15 ILVF, not worth doing fdes
+		<Add filter="new_buns_HBNet"/> # ensure network still intact after packing
+		<Add filter="init_ss_sc"/> # if SC isn't > 0.55 not worth doing fdes
+
+                #fastdesign with aa_comp and coord cst
+                <Add mover="add_cst"/>
+                <Add mover="add_comp_file"/>
+                <Add mover="fdes_gmc"/>
+                Add mover="clearconstraints"/>
+                <Add mover="clear_aa_comp_cst"/>
+                Add mover="dump2"/>
+                #redesign surface with 42.5 SASA
+                <Add mover="hardpack_surface_end"/>
+                Add mover="dump3"/>
+                #have to evaluate cst score here becasue of fast design using cst as well
+                #minimize then repack to see if network stays in place using cst_score filter
+                <Add mover="hardmin_cart"/>
+                <Add mover="repack"/> 
+                
+		Add mover="dump4"/>
+
+		Add filter="cst_score"/>
+                <Add filter="ss_sc"/>
+                <Add filter="chainA_ILVF_count"/>
+                Add filter="chainB_ILVF_count"/>
+                Add filter="chainC_ILVF_count"/>
+                <Add filter="ala_count"/>
+                <Add filter="TYR"/>
+                <Add filter="TRP"/>
+                <Add filter="PHE"/>
+                <Add filter="MET"/>
+                <Add filter="HIS"/>
+                <Add filter="new_buns_HBNet"/>
+                <Add filter="new_buns_sc_heavy"/>
+                <Add filter="new_buns_bb_heavy"/>
+                <Add filter="prepro"/>
+                <Add filter="prob_homodimerize_A"/>
+                Add filter="prob_homodimerize_B"/>
+                Add filter="prob_homodimerize_C"/>
+                <Add filter="AveDeg_ILV"/>
+                <Add filter="AveDeg_aro_apolar"/>
+                <Add filter="AveDeg_A_ILV"/>
+                Add filter="AveDeg_B_ILV"/>
+                Add filter="AveDeg_C_ILV"/>
+                Add filter="AveDeg_AB_interface_ILV"/>
+                Add filter="atomcount_ILV"/>
+                Add filter="atomcount_norm_aro_apolar"/>
+                Add filter="atomcount_A_ILV"/>
+                Add filter="atomcount_B_ILV"/>
+                Add filter="atomcount_C_ILV"/>
+                Add filter="atomcount_AB_interface_ILV"/>
+                Add filter="cav_vol" />
+                <Add filter="exposedhydrop" />
+                # we don't need this
+                 Add filter_name="interfacehole" />
+                <Add filter="network_holes"/>
+                Add mover="interface_analyzer"/>
+                Add mover="align"/>
+            # let's consider removing this; with cst_score filter and the satisfier and the new filters, I don't think we'll need it, and HBNet InfoLabels will be there
+            Add mover="hbnet_interf"/> #to filter out designs where HBNet is destroyed during design
+          </PROTOCOLS>
+          </ROSETTASCRIPTS>
+      </MultiplePoseMover>
+    </MOVERS>
+
+  <PROTOCOLS>
+    <Add mover="init_bgs1"/>
+    <Add mover="init_hbnet_interf"/>
+    <Add mover="bgs1"/>
+    <Add mover="name_chains"/>
+    <Add mover="add_termini1" />
+    <Add mover="closer"/> 
+    <Add mover="only_design_loops"/>
+    # Doing this to resolve any sidechain irregularity after stacking, also the network residues might need this step to properly form HBNets after stacking
+    Add mover="hardmin_sconly"/>
+    # add coordinate csts to prevent backbone from moving too much
+    Add mover="add_cst"/>
+    # Doing this to resolve any backbone irregularity after stacking
+    Add mover="hardmin_bb"/>
+    # clear the coordinate constraints
+    Add mover="clearconstraints"/>
+    <Add mover="hbnet_interf"/>
+    <Add mover_name="MPM_design"/>
+  </PROTOCOLS>
+</ROSETTASCRIPTS>

@@ -1,5 +1,5 @@
 """Utility functions for truncator"""
-import os
+import os, errno
 import pandas as pd
 import numpy as np
 from glob import glob
@@ -103,11 +103,11 @@ def replace_extension(file_name, ext):
 
     return base + dot + ext
 
-
+import os.path
 def ensure_extension(file_name, ext):
     """Appends filname with ext, if there is no extension. 
     ext can contain a dot or not"""
-    import os.path
+ 
     base, existing_ext = os.path.splitext(file_name)
 
     if existing_ext != '':
@@ -138,17 +138,15 @@ def basename_noext(filename):
 
 def make_dirs(dir_path):
     """Makes missing subdirs if they don't exists."""
-    import os, errno
     try:
         os.makedirs(dir_path)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
 
-
+from itertools import chain
 def flatten_list(_list):
     """Flattens a list of lists"""
-    from itertools import chain
     return list(chain.from_iterable(_list))
 
 

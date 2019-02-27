@@ -66,7 +66,7 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
 
     truncator.make_dirs(out_dir)
     base_name = truncator.basename_noext(input_pdb) 
-    if score_file is None: score_file =  out_dir+"/"+base_name+".sc"
+    if score_file is None: score_file =  base_name+suffix+".sc"
     if log_file is None: log_file =    out_dir+"/"+base_name+suffix+".log"
     
     if tee: 
@@ -88,7 +88,7 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
     -parser:protocol {script_name} -s {input_pdb} \
     -out:path:all {out_dir} \
     -indexed_structure_store:fragment_store  {structure_store} \
-    -out:file:scorefile {base_name}.sc \
+    -out:file:scorefile {score_file} \
     -out:suffix {suffix} \
     -beta \
     -in:file:fullatom \
@@ -99,6 +99,7 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
     -out:file:scorefile_format json \
     -out:pdb true \
     -parser:script_vars {script_vars_str} \
+    -out:no_nstruct_label \
     {extra_flags} \
     {redir_str} {log_file}".replace('    ','')
     
@@ -120,5 +121,78 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
         status = 0
     
 
-    #return truncator.ScriptRunResult(log_file, score_file, None, status, cmd)
-    return log_file    
+    return truncator.ScriptRunResult(log_file, score_file, None, status, cmd)
+    #return log_file    
+
+
+def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops_tl_gen_profile_SymAnn.xml', 
+                                                  rosetta_bin="/software/rosetta/latest/bin/rosetta_scripts",
+                                                  extra_flags="-chemical:exclude_patches LowerDNA  UpperDNA Cterm_amidation VirtualBB ShoveBB VirtualDNAPhosphate VirtualNTerm CTermConnect sc_orbitals pro_hydroxylated_case1 pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated  tyr_phosphorylated tyr_sulfated lys_dimethylated lys_monomethylated  lys_trimethylated lys_acetylated glu_carboxylated cys_acetylated tyr_diiodinated N_acetylated C_methylamidated MethylatedProteinCterm",
+                                                  log_file=None,
+                                                  score_file=None,
+                                                  out_pdb=None,
+                                                  tee=False, test_run=False, verbose=True, skip_existing=False,
+                                                  add_suffix = True,
+):
+    """Rebuilds the surface residue"""   
+
+    suffix=""
+    truncator.make_dirs(out_dir)
+    base_name = truncator.basename_noext(input_pdb) 
+    if score_file is None: score_file =  base_name+suffix+".sc"
+    if out_pdb is None: out_pdb =        base_name+suffix+".pdb"
+    if log_file is None: log_file =    out_dir+"/"+base_name+suffix+".log"
+    
+    if tee: 
+        redir_str = '| tee'
+    else:
+        redir_str = '>'
+
+    script_vars="chain_connections loopLengthRange resAdjustmentRangeSide1 resAdjustmentRangeSide2 allowed_loop_abegos RMSthreshold".split()
+
+    script_vars_str = ''
+    vals = locals()
+    for sv in script_vars:
+        script_vars_str += f"{sv}=\"{vals[sv]}\" "
+
+
+
+
+    cmd = f" \
+    -parser:protocol {script_name} -s {input_pdb} \
+    -out:path:all {out_dir} \
+    -out:file:scorefile {score_file} \
+    -out:file:o {out_pdb} \
+    -beta \
+    -in:file:fullatom \
+    -renumber_pdb 1 \
+    -overwrite \
+    -out:file:pdb_comments \
+    -run:preserve_header \
+    -out:file:scorefile_format json \
+    -out:pdb true \
+    -parser:script_vars {script_vars_str} \
+    -out:no_nstruct_label \
+    {extra_flags} \
+    {redir_str} {log_file}".replace('    ','')
+    
+
+        
+
+    cmd = rosetta_bin + " " +cmd
+
+
+    if verbose:
+       truncator.pp_flags(cmd)
+
+    if skip_existing and os.path.exists(log_file):
+        print("SKIPPING: "+log_file)
+        
+    if not test_run:
+        status = os.system(cmd)
+    else:
+        status = 0
+    
+
+    return truncator.ScriptRunResult(log_file, score_file, None, status, cmd)
+    #return log_file   
