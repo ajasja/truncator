@@ -41,7 +41,8 @@ def score_interface(input_pdb, output_score_file=None, script_name='truncator/xm
 
     return score_file
     
-    
+
+
 def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops_tl_gen_profile_SymAnn.xml', 
                                                   rosetta_bin="/software/rosetta/latest/bin/rosetta_scripts",
                                                   extra_flags="-chemical:exclude_patches LowerDNA  UpperDNA Cterm_amidation VirtualBB ShoveBB VirtualDNAPhosphate VirtualNTerm CTermConnect sc_orbitals pro_hydroxylated_case1 pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated  tyr_phosphorylated tyr_sulfated lys_dimethylated lys_monomethylated  lys_trimethylated lys_acetylated glu_carboxylated cys_acetylated tyr_diiodinated N_acetylated C_methylamidated MethylatedProteinCterm",
@@ -50,25 +51,42 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
                                                   score_file=None,
                                                   dont_cleanup=False,
                                                   tee=False, test_run=False, verbose=True, skip_existing=False,
-                                                  add_suffix = True,
+                                                  add_suffix = True, clean_existing=True,
                                                   chain_connections='[A+B,C+D],[B+A,C+D],[A+B,D+C],[B+A,D+C]',
                                                   loopLengthRange="2,5",
                                                   resAdjustmentRangeSide1="-1,1", 
                                                   resAdjustmentRangeSide2="-1,1",
                                                   allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA",
                                                   RMSthreshold="0.5"):
-    """Score interface metrics for PDB"""   
+    """Reloop files"""   
 
+    rosetta_bin=os.path.abspath(rosetta_bin)
+    script_name=os.path.abspath(script_name)
+    structure_store=os.path.abspath(structure_store)
+    input_pdb=os.path.abspath(input_pdb)
+
+    cc_name = truncator.chain_connections_to_safe_name(chain_connections)
     if add_suffix:
-        suffix = f"__cc{chain_connections}__llr{loopLengthRange}__ar1{resAdjustmentRangeSide1}__ar2{resAdjustmentRangeSide2}__rms{RMSthreshold}"
+        suffix = f"__cc{cc_name}__llr{loopLengthRange}__ar1{resAdjustmentRangeSide1}__ar2{resAdjustmentRangeSide2}__rms{RMSthreshold}"
     else:
         suffix = ""
 
-    truncator.make_dirs(out_dir)
+
     base_name = truncator.basename_noext(input_pdb) 
-    if score_file is None: score_file =  base_name+suffix+".sc"
-    if log_file is None: log_file =    out_dir+"/"+base_name+suffix+".log"
+    out_dir = out_dir+"/"+base_name+suffix
+    truncator.make_dirs(out_dir)
     
+    if score_file is None: score_file =  base_name+suffix+".sc"
+    if log_file is None: log_file =      base_name+suffix+".log"
+    pdb_file   =                         base_name+suffix+".pdb"
+
+    
+
+    if clean_existing:
+        truncator.remove_file(out_dir+"/"+score_file)
+        truncator.remove_file(out_dir+"/"+log_file)
+        truncator.remove_file(out_dir+"/"+pdb_file)
+
     if tee: 
         redir_str = '| tee'
     else:
@@ -82,22 +100,20 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
         script_vars_str += f"{sv}=\"{vals[sv]}\" "
 
 
-
+#   -out:path:pdb {out_dir} \
 
     cmd = f" \
     -parser:protocol {script_name} -s {input_pdb} \
-    -out:path:all {out_dir} \
     -indexed_structure_store:fragment_store  {structure_store} \
-    -out:file:scorefile {score_file} \
     -out:suffix {suffix} \
+    -out:file:scorefile  {score_file} \
     -beta \
     -in:file:fullatom \
     -renumber_pdb 1 \
-    -overwrite \
-    -out:file:pdb_comments \
-    -run:preserve_header \
+    -out:file:pdb_comments true \
+    -run:preserve_header true \
     -out:file:scorefile_format json \
-    -out:pdb true \
+    -out:pdb \
     -parser:script_vars {script_vars_str} \
     -out:no_nstruct_label \
     {extra_flags} \
@@ -106,7 +122,7 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
 
         
 
-    cmd = rosetta_bin + " " +cmd
+    cmd = f"cd {out_dir}; {rosetta_bin} {cmd}"
 
 
     if verbose:

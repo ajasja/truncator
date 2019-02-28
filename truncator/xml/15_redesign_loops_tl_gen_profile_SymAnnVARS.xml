@@ -116,7 +116,7 @@
 
 
   <Add mover="set_chain_order4"/>
-  Add mover="genProfile"/>
+  <Add mover="genProfile"/>
   
 
   <Add mover="make_loops"/>

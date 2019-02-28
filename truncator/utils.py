@@ -320,3 +320,16 @@ def lines_grep(pattern, lines):
 
 def pp_flags(cmd):
     print(cmd.replace(" -", " \\\n-"))
+
+def chain_connections_to_safe_name(chain_connections):
+    """Converts [A,C+D+B] into A-CDB"""
+    return chain_connections.replace('[','').replace(']','').replace('+','').replace(',','-')
+
+import os, errno
+
+def remove_file(filename):
+    try:
+        os.remove(filename)
+    except OSError as e: # this would be "except OSError, e:" before Python 2.6
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
