@@ -1,5 +1,5 @@
 DESIRED_CHARGE -5 #Desired net charge 
 PENALTIES_CHARGE_RANGE -6 -4 #Penalties are listed in the observed net charge range of -6 to -4.
-PENALTIES 5 0 20  
+PENALTIES 5 0 10  
 BEFORE_FUNCTION LINEAR 
 AFTER_FUNCTION QUADRATIC

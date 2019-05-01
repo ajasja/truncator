@@ -123,6 +123,8 @@
 
     
   <Add mover="set_chain_order2"/>
+  #The initial structure of to the gsa might always get excepted.
+  <Add mover="only_design_loops"/>
   <Add mover="only_design_loops_gsa"/>
 
   <Add mover="hardmin_sconly"/>

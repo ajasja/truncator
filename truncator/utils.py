@@ -333,3 +333,25 @@ def remove_file(filename):
     except OSError as e: # this would be "except OSError, e:" before Python 2.6
         if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
             raise # re-raise exception if a different error occurred
+
+#taken from http://code.activestate.com/recipes/576620-changedirectory-context-manager/
+import contextlib
+@contextlib.contextmanager
+def working_directory(path):
+    """A context manager which changes the working directory to the given
+    path, and then changes it back to its previous value on exit.
+    """
+    prev_cwd = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(prev_cwd)
+
+def load_list_of_dict_as_dict(json_file, key_field):
+    """Given a json file with a list of dictionaries, returns a dict whose keys are the value of key_field and whoose items are the dictionaries"""
+    list_of_dict = truncator.read_json(json_file)
+    res = {}
+    for d in list_of_dict:
+        res[d[key_field]]=d
+    return res

@@ -141,61 +141,78 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
     #return log_file    
 
 
-def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops_tl_gen_profile_SymAnn.xml', 
+def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.xml', 
                                                   rosetta_bin="/software/rosetta/latest/bin/rosetta_scripts",
                                                   extra_flags="-chemical:exclude_patches LowerDNA  UpperDNA Cterm_amidation VirtualBB ShoveBB VirtualDNAPhosphate VirtualNTerm CTermConnect sc_orbitals pro_hydroxylated_case1 pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated  tyr_phosphorylated tyr_sulfated lys_dimethylated lys_monomethylated  lys_trimethylated lys_acetylated glu_carboxylated cys_acetylated tyr_diiodinated N_acetylated C_methylamidated MethylatedProteinCterm",
                                                   log_file=None,
                                                   score_file=None,
                                                   out_pdb=None,
-                                                  tee=False, test_run=False, verbose=True, skip_existing=False,
+                                                  tee=False, test_run=False, verbose=True, skip_existing=False, clean_existing=True,
                                                   add_suffix = True,
+                                                  charge_constraints_chA = "",
+                                                  charge_constraints_chB = "",
 ):
-    """Rebuilds the surface residue"""   
+    """Fix the surface output"""   
 
-    suffix=""
-    truncator.make_dirs(out_dir)
+    rosetta_bin=os.path.abspath(rosetta_bin)
+    script_name=os.path.abspath(script_name)
+    input_pdb=os.path.abspath(input_pdb)
+    charge_constraints_chA=os.path.abspath(charge_constraints_chA)
+    charge_constraints_chB=os.path.abspath(charge_constraints_chB)
+
+    if add_suffix:
+        suffix = f"__ch-5"
+    else:
+        suffix = ""
+
+
     base_name = truncator.basename_noext(input_pdb) 
-    if score_file is None: score_file =  base_name+suffix+".sc"
-    if out_pdb is None: out_pdb =        base_name+suffix+".pdb"
-    if log_file is None: log_file =    out_dir+"/"+base_name+suffix+".log"
+    out_dir = out_dir+"/"+base_name+suffix
+    truncator.make_dirs(out_dir)
     
+    if score_file is None: score_file =  base_name+suffix+".sc"
+    if log_file is None: log_file =      base_name+suffix+".log"
+    pdb_file   =                         base_name+suffix+".pdb"
+  
+
+    if clean_existing:
+        truncator.remove_file(out_dir+"/"+score_file)
+        truncator.remove_file(out_dir+"/"+log_file)
+        truncator.remove_file(out_dir+"/"+pdb_file)
+
     if tee: 
         redir_str = '| tee'
     else:
         redir_str = '>'
 
-    script_vars="chain_connections loopLengthRange resAdjustmentRangeSide1 resAdjustmentRangeSide2 allowed_loop_abegos RMSthreshold".split()
+    script_vars="charge_constraints_chA charge_constraints_chB".split()
 
     script_vars_str = ''
     vals = locals()
     for sv in script_vars:
         script_vars_str += f"{sv}=\"{vals[sv]}\" "
+#    -parser:script_vars {script_vars_str} \
 
-
-
+#   -out:path:pdb {out_dir} \
 
     cmd = f" \
     -parser:protocol {script_name} -s {input_pdb} \
-    -out:path:all {out_dir} \
-    -out:file:scorefile {score_file} \
-    -out:file:o {out_pdb} \
+    -out:suffix {suffix} \
+    -out:file:scorefile  {score_file} \
     -beta \
     -in:file:fullatom \
     -renumber_pdb 1 \
-    -overwrite \
-    -out:file:pdb_comments \
-    -run:preserve_header \
+    -out:file:pdb_comments true \
+    -run:preserve_header true \
     -out:file:scorefile_format json \
-    -out:pdb true \
-    -parser:script_vars {script_vars_str} \
+    -out:pdb \
     -out:no_nstruct_label \
+    -parser:script_vars {script_vars_str} \
     {extra_flags} \
     {redir_str} {log_file}".replace('    ','')
     
 
-        
-
-    cmd = rosetta_bin + " " +cmd
+    cmd = f"cd {out_dir}; {rosetta_bin} {cmd}"
 
 
     if verbose:
@@ -211,4 +228,4 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_
     
 
     return truncator.ScriptRunResult(log_file, score_file, None, status, cmd)
-    #return log_file   
+    #return log_file    

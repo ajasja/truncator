@@ -25,6 +25,7 @@
         <Reweight scoretype="fa_elec" weight="1.4"/>
         <Reweight scoretype="hbond_sc" weight="2.0" />
         <Reweight scoretype="aa_composition" weight="1.0" />
+        <Reweight scoretype="res_type_constraint" weight="1.5" />
       </ScoreFunction>
       <ScoreFunction name="up_ele" weights="beta_cst" >
         <Reweight scoretype="fa_elec" weight="1.4"/>
@@ -294,15 +295,15 @@
       <DumpPdb name="dump_before_satisfy" fname="dump_before_satisfy.pdb" scorefxn="beta_aa_comp" tag_time="1"/>
       <Superimpose name="align"/> 
       Satisfier name="satisfy" scorefxn="beta" repack="false" design="true" residue_surface_cutoff="20.0" />
-      <PackRotamersMover name="hardpack_surface_end" scorefxn="beta_aa_comp" task_operations="init,layer_SASA_end,design_surface_SASA_end,current,arochi,ex1,up_ppi,fix_loops,disallow_non_abego_aas"/>
+      <PackRotamersMover name="hardpack_surface_end" scorefxn="beta_aa_comp" task_operations="init,layer_SASA_end,design_surface_SASA_end,current,arochi,ex1,up_ppi"/>
       <PackRotamersMover name="hardpack_loops_end" scorefxn="beta_aa_comp" task_operations="init,current,arochi,ex1,up_ppi,only_loops,disallow_non_abego_aas"/>
-      <GenericSimulatedAnnealer name="hardpack_surface_end_gsa" mover_name="hardpack_surface_end" trials="50"  eval_period="1" history="50" bolz_rank="0" recover_low="1" preapply="0" drift="1" checkpoint_file="mc" keep_checkpoint_file="0" filter_name="up_ele_score_norm" temperature="0.5" sample_type="low" >
+      <GenericSimulatedAnnealer name="hardpack_surface_end_gsa" mover_name="hardpack_surface_end" trials="30"  eval_period="1" history="30" bolz_rank="0" recover_low="1" preapply="0" drift="1" checkpoint_file="mc" keep_checkpoint_file="0" filter_name="up_ele_score_norm" temperature="0.5" sample_type="low" >
         <Filters>
           <AND filter_name="psi_pred" temperature="0.005" sample_type="high" rank="1" />
           <AND filter_name="buns_sc_heavy" temperature="0.5" sample_type="low"/>
         </Filters>
       </GenericSimulatedAnnealer>
- 
+      <StructProfileMover name="genProfile_and_add_constraints" add_csts_to_pose="1" consider_topN_frags="100" eliminate_background="0" ignore_terminal_residue="1" only_loops="0" burialWt="0" RMSthreshold="0.6" />
 </MOVERS> 
 <PROTOCOLS>
   # loops are initially poly-VAL, design the loops based on ABEGO, layer_design, and keeping the h-bond networks in place
@@ -344,6 +345,8 @@
       <Add mover="make_neg_chA"/>
       <Add mover="make_neg_chB"/>
      
+     
+      <Add mover="genProfile_and_add_constraints"/>
        #The initial structure of to the gsa might always get excepted.
       <Add mover="hardpack_surface_end"/>
       <Add mover="hardpack_surface_end_gsa"/>
