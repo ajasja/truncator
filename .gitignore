@@ -1,4 +1,5 @@
 #Excluded folders
+out/
 data/
 papers/
 src/.idea
