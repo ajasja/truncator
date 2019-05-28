@@ -1,0 +1,119 @@
+<ROSETTASCRIPTS>
+  <SCOREFXNS>
+    <ScoreFunction name="hard_cart" weights="beta_cart">
+      <Reweight scoretype="coordinate_constraint" weight="2.0"/>
+      <Reweight scoretype="cart_bonded" weight="0.5"/>
+    </ScoreFunction>
+    <ScoreFunction name="hard_cart_prof" weights="beta_cart">
+      Reweight scoretype="coordinate_constraint" weight="2.0"/>
+      Reweight scoretype="cart_bonded" weight="0.5"/>
+      <Reweight scoretype="res_type_constraint" weight="2"/>
+    </ScoreFunction>
+    <ScoreFunction name="hard" weights="beta"/>
+    <ScoreFunction name="hard_cst" weights="beta_cst">
+      Reweight scoretype="aa_composition" weight="1.0" />
+      <Reweight scoretype="res_type_constraint" weight="2"/>
+   </ScoreFunction>
+    <ScoreFunction name="hard_cst_upele" weights="beta_cst">
+      <Reweight scoretype="fa_elec" weight="1.4" />
+      <Reweight scoretype="hbond_sc" weight="2.0" />
+      <Reweight scoretype="res_type_constraint" weight="2"/>
+   </ScoreFunction>
+    <ScoreFunction name="hard_upele" weights="beta">
+      <Reweight scoretype="fa_elec" weight="1.4" />
+      <Reweight scoretype="hbond_sc" weight="2.0" />
+   </ScoreFunction>   
+
+  </SCOREFXNS>
+<RESIDUE_SELECTORS>
+    <SecondaryStructure name="helix" ss="H" overlap="0" minH="3" minE="3" use_dssp="true" include_terminal_loops="false" />
+    <SecondaryStructure name="sheet" ss="E" overlap="0" minH="3" minE="3" use_dssp="true" include_terminal_loops="false" />
+    <SecondaryStructure name="loop"	 ss="L" overlap="0" minH="3" minE="3" use_dssp="true" include_terminal_loops="true" />
+  
+  <Layer name="core"  select_core="1" select_boundary="0" select_surface="0" use_sidechain_neighbors="0" core_cutoff="35" surface_cutoff="45" />
+  <Layer name="bdry"  select_core="0" select_boundary="1" select_surface="0" use_sidechain_neighbors="0" core_cutoff="35" surface_cutoff="45" />  
+  <Layer name="surf"  select_core="0" select_boundary="0" select_surface="1" use_sidechain_neighbors="0" core_cutoff="35" surface_cutoff="45" />  
+  <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet" />
+  <ResiduePDBInfoHasLabel name="overlap_residues" property="overlap" />
+  <ResidueName name="polar_aas" residue_name3="SER,THR,ASN,GLN,HIS,TYR,TRP,ASP" />
+  <And name="polar_core" selectors="polar_aas,core"/>
+  #only include the neighbors
+  
+  <Chain name="chain_B" chains="B"/>
+  
+  <Neighborhood name="residues_to_design" selector="overlap_residues" distance="8" include_focus_in_subset="false" />
+  <And name="residues_to_design_chain_B" selectors="residues_to_design,chain_B"/>
+  <Not name="residues_to_repack_only" selector="residues_to_design_chain_B"/>
+</RESIDUE_SELECTORS>
+<TASKOPERATIONS>
+    <IncludeCurrent name="current"/>
+    <LimitAromaChi2 name="arochi" />
+    
+
+   
+    <ExtraRotamersGeneric name="ex1_ex2" ex1="1" ex2="1" /> //want this in closer?
+    
+    //layer design
+    <DesignRestrictions name="layer_design" >
+      <Action selector_logic="surf AND ( helix OR sheet )"	aas="DEKRNQST" />
+      <Action selector_logic="surf AND loop"		      			aas="DEKRNQSTGP" />
+      <Action selector_logic="bdry AND helix"		      			aas="ILVAFMDEKRNQSTWY" />
+      <Action selector_logic="bdry AND sheet"		      			aas="ILVAFDEKRNQSTWY" />
+      <Action selector_logic="bdry AND loop"		      			aas="ILVAFMDEKRNQSTGPWY" />
+      <Action selector_logic="core AND helix"		      			aas="ILVAFM" />
+      <Action selector_logic="core AND sheet"		      			aas="ILVAF" />
+      <Action selector_logic="core AND loop"		      			aas="ILVAFMGP" />
+    </DesignRestrictions>	
+
+    <LayerDesign name="layer_SASA" layer="core_boundary_surface_Nterm_Cterm" make_pymol_script="1" use_sidechain_neighbors="0" core="35" surface="45" >
+        <core>
+          <Helix append="M" />
+          <all exclude="M" />
+        </core>
+        <boundary>
+          <Helix exclude="W" />
+          <all exclude="MFH" />
+        </boundary>
+        <surface>
+          <all exclude="MH" />
+        </surface>
+      </LayerDesign> 
+
+  <ConsensusLoopDesign name="disallow_non_abego_aas"/>
+  
+  <OperateOnResidueSubset name="lock_core" selector="core"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="hbnets_fixed" selector="hbnet_residues"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+  <OperateOnResidueSubset name="lock_rest" selector="residues_to_repack_only"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+
+  <OperateOnResidueSubset name="polar_core_fixed" selector="polar_core"><RestrictToRepackingRLT/></OperateOnResidueSubset>
+</TASKOPERATIONS>
+<MOVERS>
+  <AddConstraintsToCurrentConformationMover name="add_cst" use_distance_cst="0" coord_dev="1" />
+  <ClearConstraintsMover name="clearconstraints"/>
+  <DisplayPoseLabelsMover name="show_packable" title_width="20" task_operations="lock_core,lock_rest,layer_design,ex1_ex2,arochi,current" />
+  <PackRotamersMover name="redesign_around_overlap" scorefxn="hard_cst_upele" task_operations="lock_core,lock_rest,layer_design,ex1_ex2,arochi,current" />
+  <MinMover name="hardmin_bb" scorefxn="hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="0" bb="1" bondangle="1" bondlength="1" jump="all" cartesian="1"/>
+  <MinMover name="hardmin_sconly" scorefxn="hard_cst" chi="1" bb="0" bondangle="0" bondlength="0" />
+  <MinMover name="hardmin_all" scorefxn="hard_cart" type="lbfgs_armijo_nonmonotone" tolerance="0.0001" chi="1" bb="1" bondangle="1" bondlength="1" jump="all" cartesian="1"/>
+
+  HBNetStapleInterface name="find_hbnet" find_only_native_networks="1" scorefxn="hard_cart_prof" hb_threshold="-0.1" min_helices_contacted_by_network="2" core_selector="core" show_task="0" store_subnetworks="0" verbose="1" no_heavy_unsats_allowed="1" write_network_pdbs="0"  min_core_res="2"  /> 
+  <StructProfileMover name="genProfile" only_loops="true"/>
+
+
+</MOVERS>
+<PROTOCOLS>
+
+
+
+
+  Add mover="genProfile"/>
+  
+  Add mover="show_packable"/>
+  Add mover="redesign_around_overlap"/>
+    
+  
+  <Add mover="hardmin_sconly"/>
+  Add mover="hardmin_all"/>
+ 
+</PROTOCOLS>
+</ROSETTASCRIPTS>
