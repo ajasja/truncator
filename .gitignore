@@ -1,9 +1,15 @@
 #Excluded folders
+out/
+data/
 papers/
 src/.idea
 build/
 testing_out/
 
+*.err
+*.out
+*.lock
+scheduler.json
 # Compiled Object files
 *.slo
 *.lo
