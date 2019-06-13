@@ -5,6 +5,9 @@ try:
     from pymol import CmdException
 except:
   print("Pymol is most likely not installed")
+
+
+
 def get_ss(sel_str):
     """returns the secondary structure of selection as a string"""
     stored.ss_array = []
@@ -40,7 +43,6 @@ def get_helices(sele="all"):
 
 
 def sel_first_helix(n, sele="all", onlyh=True, sele_name="sele"):
-    print(onlyh)
     helices = get_helices(sele)
     if int(onlyh):
         hresi = itertools.chain(*helices[: int(n)])
@@ -54,7 +56,6 @@ def sel_first_helix(n, sele="all", onlyh=True, sele_name="sele"):
 
 
 def sel_last_helix(n, sele="all", onlyh=True, sele_name="sele"):
-    print(onlyh)
     helices = get_helices(sele)
     if int(onlyh):
         hresi = itertools.chain(*helices[-int(n) :])
@@ -76,3 +77,55 @@ def sel_terminal_helix(n, sele="all", onlyh=True, sele_name="sele"):
 cmd.extend("sel_first_helix", sel_first_helix)
 cmd.extend("sel_last_helix", sel_last_helix)
 cmd.extend("sel_terminal_helix", sel_terminal_helix)
+
+def clash_check_CA(selA, selB, distance=4.0, sele_name=None):
+    """Returns the number of CA atoms in selA that lie closer than radii to any CA atom in selB"""
+    ##
+    selA = f"({selA}) and name CA"
+    selB = f"({selB}) and name CA"
+
+    sel_str = f"(({selA}) within {distance} of ({selB}))"
+    model = cmd.get_model(sel_str)
+    if not sele_name is None:
+        cmd.select(sele_name, selection=sel_str)
+    return model.nAtom
+
+def get_distance(c1, c2):
+    return ((c1[0]-c2[0])**2 + (c1[1]-c2[1])**2 + (c1[2]-c2[2])**2)**0.5
+
+def get_alignment_map(from_sel, to_sel, max_distance=1.5):
+    """Finds atoms in to_sel that are close to from_sel"""
+    from_sel = f"({from_sel}) and name CA"
+    to_sel = f"({to_sel}) and name CA"
+    mapping={}
+    distances={}
+    from_model = cmd.get_model(from_sel)
+    
+    for at in from_model.atom:
+        to_model = cmd.get_model(f"({to_sel}) within {max_distance} of ({from_sel} and chain {at.chain} and resi {at.resi})")    
+        
+        if to_model.nAtom>1:
+            print(f"WARNING: more than one atom ({to_model.nAtom}) within {from_sel} and chain {at.chain} and resi {at.resi}")
+        ch_res_id = f"{at.chain}_{at.resi}"
+        if to_model.nAtom>0:
+            to_model_at = to_model.atom[0]
+            mapping[ch_res_id] = f"{to_model_at.chain}_{to_model_at.resi}"
+            distances[ch_res_id] = get_distance(at.coord, to_model_at.coord)
+        else:
+            mapping[ch_res_id] = None
+            distances[ch_res_id] = None
+    return mapping, distances
+
+
+def color_by_selector_array(name, selector, color="red"):
+    if isinstance(selector, str):
+        selector=selector.split(',')
+    for n,i in enumerate(selector, start=1):
+        if int(i)>0:
+            cmd.color(color, f"{name} and resi {n}")
+
+cmd.extend("color_by_selar", color_by_selector_array)
+"""
+run Z:\projects\truncator\truncator\pymol_utils.py
+print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08_trim"))
+"""
