@@ -95,7 +95,7 @@ def get_distance(c1, c2):
     return ((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2) ** 0.5
 
 
-def get_alignment_map(from_sel, to_sel, max_distance=1.5):
+def get_alignment_map(from_sel, to_sel, max_distance=1.8):
     """Finds atoms in to_sel that are close to from_sel"""
     from_sel = f"({from_sel}) and name CA"
     to_sel = f"({to_sel}) and name CA"
@@ -107,7 +107,8 @@ def get_alignment_map(from_sel, to_sel, max_distance=1.5):
         to_model = cmd.get_model(
             f"({to_sel}) within {max_distance} of ({from_sel} and chain {at.chain} and resi {at.resi})"
         )
-
+        # print(f"({to_sel}) within {max_distance} of ({from_sel} and chain {at.chain} and resi {at.resi})")
+        # print(to_model.nAtom)
         if to_model.nAtom > 1:
             print(
                 f"WARNING: more than one atom ({to_model.nAtom}) within {from_sel} and chain {at.chain} and resi {at.resi}"
@@ -131,8 +132,30 @@ def color_by_selector_array(name, selector, color="red"):
             cmd.color(color, f"{name} and resi {n}")
 
 
+def get_pymol_selector_from_rosetta_selector_str(sel_str):
+    """Given a list of pdb_ids 10_A, or 10A print a pymol selector"""
+    ids = sel_str.split(",")
+    result = []
+    # TODO group by chains?
+    for id_ in ids:
+        chain = id_[-1:]
+        resi = id_[:-1]
+        result.append(f"(resi {resi} and chain {chain})")
+    result = "(" + " or ".join(result) + ")"
+    return result
+    
+# get_pymol_selector_from_rosetta_selector_str('158B,160B,161B,162B,164B,165B,167B,168B,169B,171B,172B,194B,195B,196B,197B,198B,199B,200B,201B,202B,203B,204B,205B,206B,208B,209B')
+
+
+def color_by_pdb_id_list(name, pdb_ids, color="red"):
+    """Given a list of pdb_ids 10_A, or 10A print a pymol selector"""
+    pass
+
+
 cmd.extend("color_by_selar", color_by_selector_array)
-"""
+
+
+r"""
 run Z:\projects\truncator\truncator\pymol_utils.py
 print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08_trim"))
 """

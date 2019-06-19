@@ -4,6 +4,7 @@ from pyrosetta import rosetta
 
 
 def get_layer_selector_form_XML(tag_str):
+    """Given a layer selector XML returns the layer selector object"""
     tag = pyrosetta.rosetta.utility.tag.Tag()
     tag.read(tag_str)
     datamap = pyrosetta.rosetta.basic.datacache.DataMap()
@@ -21,6 +22,7 @@ def get_score_function_from_XML(snippet):
 
 
 def get_layers(layer_selector, pose):
+    """Returns the core, boundry and surfacace subsets (selections) for a pose"""
     layers = dict(core=[1, 0, 0], boundary=[0, 1, 0], surface=[0, 0, 1])
     result = {}
     for layer in layers.keys():
@@ -31,6 +33,7 @@ def get_layers(layer_selector, pose):
 
 
 def get_residue_layer(res_id, layers_vectors):
+    """Given a rosetta resid retunrs if the residue is in the surface, core or boundry layer"""
     for layer in layers_vectors.keys():
         if layers_vectors[layer][res_id] > 0:
             return layer
