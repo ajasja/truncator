@@ -46,14 +46,22 @@ def visualise_selector(
     color="red",
     base_color="gray",
     base_name="all",
+    do_print=True,
 ):
     selected_pymol = (
         pyrosetta.rosetta.core.simple_metrics.metrics.SelectedResiduesPyMOLMetric()
     )
     selected_pymol.set_residue_selector(layer_selector)
-    print(selected_pymol.calculate(pose).replace("rosetta_sele", selection_name))
-    print(f"color {base_color}, {base_name}")
-    print(f"color red, {selection_name}")
+    sel_str = selected_pymol.calculate(pose).replace("rosetta_sele", selection_name)
+    col_str_base = f"color {base_color}, {base_name}"
+    col_str_sele = f"color red, {selection_name}"
+    
+    result_str = "\n".join([sel_str, col_str_base, col_str_sele])
+    
+    if do_print:
+        print(result_str)
+    
+    return(result_str)
 
 
 def get_selector_resids(selector, pose):
