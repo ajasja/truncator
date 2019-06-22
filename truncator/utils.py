@@ -325,6 +325,15 @@ def chain_connections_to_safe_name(chain_connections):
     """Converts [A,C+D+B] into A-CDB"""
     return chain_connections.replace('[','').replace(']','').replace('+','').replace(',','-')
 
+
+import hashlib
+import base64
+
+def short_readable_hash(str_, len_):
+    """Takes a string and returns the first len_ chars os base32 represnetation of a hash"""
+    dig = hashlib.sha1(str_.encode('UTF-8')).digest()
+    return base64.b32encode(dig).decode('ascii')[:len_]
+
 import os, errno
 
 def remove_file(filename):
@@ -366,21 +375,22 @@ import tempfile
 libc = ctypes.CDLL(None)
 c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
 
+
+def _redirect_stdout(to_fd):
+    """Redirect stdout to the given file descriptor."""
+    # Flush the C-level buffer stdout
+    libc.fflush(c_stdout)
+    # Flush and close sys.stdout - also closes the file descriptor (fd)
+    sys.stdout.close()
+    # Make original_stdout_fd point to the same file as to_fd
+    os.dup2(to_fd, original_stdout_fd)
+    # Create a new sys.stdout that points to the redirected fd
+    sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
+
 @contextmanager
 def stdout_redirector(stream):
     # The original fd stdout points to. Usually 1 on POSIX systems.
     original_stdout_fd = sys.stdout.fileno()
-
-    def _redirect_stdout(to_fd):
-        """Redirect stdout to the given file descriptor."""
-        # Flush the C-level buffer stdout
-        libc.fflush(c_stdout)
-        # Flush and close sys.stdout - also closes the file descriptor (fd)
-        sys.stdout.close()
-        # Make original_stdout_fd point to the same file as to_fd
-        os.dup2(to_fd, original_stdout_fd)
-        # Create a new sys.stdout that points to the redirected fd
-        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
 
     # Save a copy of the original stdout fd in saved_stdout_fd
     saved_stdout_fd = os.dup(original_stdout_fd)
