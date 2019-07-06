@@ -365,6 +365,53 @@ def load_list_of_dict_as_dict(json_file, key_field):
         res[d[key_field]]=d
     return res
 
+import re
+space_remover = re.compile(r'\s+')
+def remove_whitespace(str_):
+    return re.sub(space_remover, '', str_)
+
+def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_format='.pdb'):
+    """Extracts a chain from pdb to a pdb or fasta file"""
+    import pymol
+    from pymol import cmd
+    if out_name is None:
+        out_name = truncator.basename_noext(pdb_name).replace('.pdb', '')+"_A"
+    cmd.delete('all')
+    cmd.load(pdb_name)
+    #TAKE ONLY CHAIN X (and not the others)
+    cmd.remove(f'not chain {chain}')
+
+
+    truncator.make_dirs(out_dir)
+    with truncator.working_directory(out_dir):
+        if out_format=='.fasta':
+            fasta_str = cmd.get_fastastr(f'all')
+            #get rid of _A or other chain at the end
+            fasta_str = re.sub(f">(.*)_{chain}\n", ">\\1\n", fasta_str)
+            #print(fasta_str)
+            truncator.write_file(out_name+out_format, fasta_str)
+        else:    
+            cmd.do(f"save {out_name}{out_format}")
+
+
+import os, errno
+
+#taken from
+def silent_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e: # this would be "except OSError, e:" before Python 2.6
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
+
+def seq_charge(seq):
+    charge = 0
+    AACharge = {"C":-.045,"D":-1,"E":-1,"H":.091,
+                "K":1,"R":1,"Y":-.001}
+    for aa in seq:
+        charge += AACharge.get(aa,0)
+    return charge
+
 #taken from https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
 from contextlib import contextmanager
 import ctypes
