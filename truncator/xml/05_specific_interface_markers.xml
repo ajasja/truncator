@@ -14,13 +14,18 @@
 
 <RESIDUE_SELECTORS>
      
-    <Layer name="core" select_core="true"     use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
-    <Layer name="bndr" select_boundary="true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
-    <Layer name="surf" select_surface= "true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/>    
+    #Original Scott
+    Layer name="core" select_core="true"     use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    Layer name="bndr" select_boundary="true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/> 
+    Layer name="surf" select_surface= "true" use_sidechain_neighbors="true" core_cutoff="3.6" surface_cutoff="2.0"/>    
     #sherry
     Layer name="core" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_core="true" />
     Layer name="bndr" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_boundary="true" />
     Layer name="surf" use_sidechain_neighbors="true" core_cutoff="4.9" surface_cutoff="2.7" sc_neighbor_dist_exponent="0.7" select_surface="true" />
+
+    <Layer name="core" select_core="true"     use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>  
+    <Layer name="bndr" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/> 
+    <Layer name="surf" select_surface= "true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>     
 
     <Layer name="core_SASA" select_core="true"     use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/>  
     <Layer name="bndr_SASA" select_boundary="true" use_sidechain_neighbors="false" core_cutoff="35" surface_cutoff="45"/> 
@@ -67,6 +72,10 @@
 
     <And name="core_chA" selectors="core,chainA"/>
     <And name="core_chB" selectors="core,chainB"/>
+    <And name="bndr_chA" selectors="bndr,chainA"/>
+    <And name="bndr_chB" selectors="bndr,chainB"/>
+    <And name="surf_chA" selectors="surf,chainA"/>
+    <And name="surf_chB" selectors="surf,chainB"/>
 
     <And name="core_SASA_polars" selectors="core_SASA,polars"/>
     <And name="chA_core_SASA_polars" selectors="core_SASA_polars,chainA"/>
@@ -109,6 +118,16 @@
     <SelectedResiduesPyMOLMetric name="chA_core_SASA_polars" residue_selector="chA_core_SASA_polars" custom_type="chA_core_SASA_polars" />
     <SelectedResiduesPyMOLMetric name="chB_core_SASA_polars" residue_selector="chB_core_SASA_polars" custom_type="chB_core_SASA_polars" />
 
+    <SequenceMetric name="core_chA" custom_type="core_chA"  residue_selector="core_chA" />
+    <SequenceMetric name="bndr_chA" custom_type="bndr_chA"  residue_selector="bndr_chA" />
+    <SequenceMetric name="surf_chA" custom_type="surf_chA"  residue_selector="surf_chA" />
+    <SequenceMetric name="all_seq_chA" custom_type="chA"   /> 
+
+    <SequenceMetric name="core_chB" custom_type="core_chB"  residue_selector="core_chB" />
+    <SequenceMetric name="bndr_chB" custom_type="bndr_chB"  residue_selector="bndr_chB" />
+    <SequenceMetric name="surf_chB" custom_type="surf_chB"  residue_selector="surf_chB" />
+    <SequenceMetric name="all_seq_chB" custom_type="chB"   /> 
+    
     SelectedResidueCountMetric name="num_core_SASA_polars" residue_selector="core_SASA_polars" custom_type="num_core_SASA_polars"/>
     SelectedResidueCountMetric name="chA_num_core_SASA_polars" residue_selector="chA_core_SASA_polars" custom_type="chA_num_core_SASA_polars"/>
     SelectedResidueCountMetric name="chB_num_core_SASA_polars" residue_selector="chA_core_SASA_polars" custom_type="chA_num_core_SASA_polars"/>
@@ -144,6 +163,11 @@
 
     <ScoreType name="total_hpatch_score" scorefxn="hpatch" score_type="hpatch" threshold="0" confidence="0"/>
     SimpleMetricFilter name="core_hbnet_filter" metric="core_hbnet_residues" confidence="0" comparison_type="eq" match="test"/>
+    <BuriedSurfaceArea name="buried_npsa" select_only_FAMILYVW="False" atom_mode="hydrophobic_atoms" confidence="0.0" />
+    <BuriedSurfaceArea name="buried_psa" select_only_FAMILYVW="False" atom_mode="polar_atoms" confidence="0.0" />
+    
+    <BuriedSurfaceArea name="buried_npsa_core" select_only_FAMILYVW="False" atom_mode="hydrophobic_atoms" confidence="0.0" residue_selector="core" />
+    <BuriedSurfaceArea name="buried_psa_core" select_only_FAMILYVW="False" atom_mode="polar_atoms" confidence="0.0" residue_selector="core"/>
 </FILTERS>
 
 <MOVERS>
@@ -186,6 +210,9 @@
     <RunSimpleMetrics name="run_metrics_selection" metrics="AB_interface,core_and_interface,interface_by_vec,core_and_interface_by_vec,chainA,chainB,core,bndr,surf,core_SASA,bndr_SASA,surf_SASA,core_bndr_and_interface_by_vec" prefix="" />
     <RunSimpleMetrics name="run_metrics_selection1" metrics="core_bndr_Hbonds,core_Hbonds,coreSASA_int_Hbonds,coreSASA_int_Hbonds_polar,core_bndr_polars,core_polars,hbnet_residues,core_hbnet_residues,core_hbnet_residues_chA,core_hbnet_residues_chB" prefix="" />
     <RunSimpleMetrics name="run_metrics_selection2" metrics="num_core_hbnet_residues_chA,num_core_hbnet_residues_chB,core_SASA_polars,chA_core_SASA_polars,chB_core_SASA_polars" prefix="" />
+    <RunSimpleMetrics name="run_metrics_seq" metrics="all_seq_chA,all_seq_chB,core_chA,bndr_chA,surf_chA,core_chB,bndr_chB,surf_chB" prefix="" />
+    
+    
     RunSimpleMetrics name="run_metrics_selection_nums" metrics="num_core_SASA_polars,chA_num_core_SASA_polars,chB_num_core_SASA_polars" />
 
     <InterfaceAnalyzerMover name="interface_analyzer" scorefxn="NOV15" packstat="true" interface_sc="true" pack_input="false" 
@@ -225,13 +252,21 @@
     <Add mover="makechain2only" />
     <Add mover="restore_dimer" />
     
-
+    #The simple metric must be run after the restor dimer, since they are not saved with this mover
     <Add mover="hbnet_interf" />
     <Add mover="run_metrics_selection" />
     <Add mover="run_metrics_selection1" />
     <Add mover="run_metrics_selection2" />
+    <Add mover="run_metrics_seq" />
+    
     <Add filter="interface_hbonds"/>
     <Add filter="interface_salt_bridges"/>
+    
+    <Add filter_name="buried_psa"/>
+    <Add filter_name="buried_npsa"/>
+    <Add filter_name="buried_psa_core"/>
+    <Add filter_name="buried_npsa_core"/>
+
     <Add filter="num_core_hbnet_residues_chA"/>
     <Add filter="num_core_hbnet_residues_chB"/>
     <Add filter="num_core_chA"/>

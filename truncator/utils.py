@@ -213,7 +213,7 @@ def seq_from_pdb(file_name):
         f.close()
 
 
-def read_score_file(file_name, pdb_dir=None, verbose=False, load_seq=True, skiprows=1):
+def read_score_file(file_name, pdb_dir=None, verbose=False, load_seq=True, load_full_pdb_path=True, skiprows=1):
     """Loads a score file and PDB sequnces to a pandas dataframe"""
     import pandas as pd
 
@@ -227,38 +227,39 @@ def read_score_file(file_name, pdb_dir=None, verbose=False, load_seq=True, skipr
     #charges = []
     #pIs = []
     #MWs = []
-  
-    for n, name in enumerate(df.decoy.values):
-        if verbose:
-            print(name)
-        full_name = get_full_file_from_name(name, pdb_dir)
-        full_names.append(full_name)
-        if load_seq:
-            seqs.append(seq_from_pdb(full_name))
-    df['full_name'] = full_names
-    
-    if load_seq:
+   
+    if load_full_pdb_path:
+        for n, name in enumerate(df.decoy.values):
+            if verbose:
+                print(name)
+            full_name = get_full_file_from_name(name, pdb_dir)
+            full_names.append(full_name)
+            if load_seq:
+                seqs.append(seq_from_pdb(full_name))
+        df['full_name'] = full_names
+        
+    if load_seq and load_full_pdb_path:
         df['seq'] = seqs
     else:
         df['seq'] = " "
     return df
 
-def read_score_files(file_names, pdb_dir=None, verbose=False, load_seq=True, skiprows=1, cache_file=None):
+def read_score_files(file_names, pdb_dir=None, verbose=False, load_seq=True, load_full_pdb_path=True, skiprows=1, cache_file=None):
     dfs = []
     
     for file_name in file_names:
-        dfs.append(read_score_file(file_name, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows))
+        dfs.append(read_score_file(file_name, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows, load_full_pdb_path=load_full_pdb_path))
     dfs = pd.concat(dfs, sort=False)
     
     return dfs
 
 
-def read_score_files_with_cache(file_names, cache_file, pdb_dir=None, verbose=False, load_seq=False, skiprows=1, force_reload=False):
+def read_score_files_with_cache(file_names, cache_file, pdb_dir=None, verbose=False, load_seq=False, load_full_pdb_path=False, skiprows=1, force_reload=False):
     if os.path.exists(cache_file) and not force_reload:
         dfs = pd.read_csv(cache_file, index_col=False)
         return dfs
     
-    dfs = read_score_files(file_names, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows)
+    dfs = read_score_files(file_names, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows, load_full_pdb_path=load_full_pdb_path)
     
     dfs.to_csv(cache_file, index=False)
     return dfs

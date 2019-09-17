@@ -14,17 +14,22 @@ def run_rosetta_script(rosetta_bin, script_name, struct_name, out_dir,
     base_name = truncator.basename_noext(struct_name) 
 
     truncator.make_dirs(out_dir)
-    if score_file is None: score_file =  os.path.abspath(out_dir+"/"+base_name+".sc")
-    if log_file is None: log_file =    os.path.abspath(out_dir+"/"+base_name+".log")
-    if pdb_file is None: pdb_file =    os.path.abspath(out_dir+"/"+base_name+".pdb")
+    #if score_file is None: score_file =  os.path.abspath(out_dir+"/"+base_name+".sc")
+    #if log_file is None: log_file =    os.path.abspath(out_dir+"/"+base_name+".log")
+    #if pdb_file is None: pdb_file =    os.path.abspath(out_dir+"/"+base_name+".pdb")
+    if score_file is None: score_file =  base_name+".sc"
+    if log_file is None: log_file =      out_dir+"/"+base_name+".log"
+    if pdb_file is None: pdb_file =      base_name+".pdb"
     
     if tee: 
         redir_str = '| tee'
     else:
         redir_str = '>'
     specify_output_str =f"\
+    -out:path:all {out_dir} \
     -out:file:o  {pdb_file} \
     -out:file:scorefile  {score_file} "
+    
     cmd = f" \
     -parser:protocol {script_name} -s {struct_name} \
     -print_pymol_selection 0 \
@@ -38,6 +43,9 @@ def run_rosetta_script(rosetta_bin, script_name, struct_name, out_dir,
     
     if specify_output:
        cmd = specify_output_str + " " + cmd
+       #expand the paths manually
+       score_file = out_dir+"/"+score_file
+       pdb_file =   out_dir+"/"+pdb_file
     cmd = rosetta_bin + " " +cmd
     
     if verbose:
@@ -47,4 +55,5 @@ def run_rosetta_script(rosetta_bin, script_name, struct_name, out_dir,
     else:
         status = 0
         
+
     return truncator.ScriptRunResult(log_file, score_file, pdb_file, status, cmd)    
