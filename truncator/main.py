@@ -9,7 +9,8 @@ def score_interface(input_pdb, output_score_file=None, script_name='truncator/xm
                                                   rosetta_bin="/software/rosetta/latest/bin/rosetta_scripts",
                                                   dont_cleanup=False,
                                                   out_dir=None,
-                                                  tee=False, test_run=False, skip_existing=False):
+                                                  tee=False, test_run=False, skip_existing=False, 
+                                                  dalphaball='/home/ajasja/projects/truncator/truncator/scripts/DAlphaBall.gcc'):
     """Score interface metrics for PDB"""   
 
     if out_dir is None:
@@ -32,7 +33,7 @@ def score_interface(input_pdb, output_score_file=None, script_name='truncator/xm
         return output_score_file
 
     res = truncator.run_rosetta_script(rosetta_bin, script_name, input_pdb, tmp_dir, 
-                       extra_flags="-holes:dalphaball truncator/scripts/DAlphaBall.gcc -out:no_nstruct_label", tee=tee, test_run=test_run)
+                       extra_flags=f"-holes:dalphaball {dalphaball} -beta_nov16 -out:no_nstruct_label", tee=tee, test_run=test_run)
     
     score_file=truncator.add_to_score_from_log(log_file=res.log_file, score_file=res.score_file, out_file=output_score_file)
     

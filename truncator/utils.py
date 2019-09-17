@@ -326,6 +326,15 @@ def chain_connections_to_safe_name(chain_connections):
     """Converts [A,C+D+B] into A-CDB"""
     return chain_connections.replace('[','').replace(']','').replace('+','').replace(',','-')
 
+
+import hashlib
+import base64
+
+def short_readable_hash(str_, len_):
+    """Takes a string and returns the first len_ chars os base32 represnetation of a hash"""
+    dig = hashlib.sha1(str_.encode('UTF-8')).digest()
+    return base64.b32encode(dig).decode('ascii')[:len_]
+
 import os, errno
 
 def remove_file(filename):
@@ -356,3 +365,94 @@ def load_list_of_dict_as_dict(json_file, key_field):
     for d in list_of_dict:
         res[d[key_field]]=d
     return res
+
+import re
+space_remover = re.compile(r'\s+')
+def remove_whitespace(str_):
+    return re.sub(space_remover, '', str_)
+
+def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_format='.pdb'):
+    """Extracts a chain from pdb to a pdb or fasta file"""
+    import pymol
+    from pymol import cmd
+    if out_name is None:
+        out_name = truncator.basename_noext(pdb_name).replace('.pdb', '')+"_"+chain
+    cmd.delete('all')
+    cmd.load(pdb_name)
+    #TAKE ONLY CHAIN X (and not the others)
+    cmd.remove(f'not chain {chain}')
+
+
+    truncator.make_dirs(out_dir)
+    with truncator.working_directory(out_dir):
+        if out_format=='.fasta':
+            fasta_str = cmd.get_fastastr(f'all')
+            #get rid of _A or other chain at the end
+            fasta_str = re.sub(f">(.*)_{chain}\n", ">\\1\n", fasta_str)
+            #print(fasta_str)
+            truncator.write_file(out_name+out_format, fasta_str)
+        else:    
+            cmd.do(f"save {out_name}{out_format}")
+
+
+import os, errno
+
+#taken from
+def silent_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e: # this would be "except OSError, e:" before Python 2.6
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
+
+def seq_charge(seq):
+    charge = 0
+    AACharge = {"C":-.045,"D":-1,"E":-1,"H":.091,
+                "K":1,"R":1,"Y":-.001}
+    for aa in seq:
+        charge += AACharge.get(aa,0)
+    return charge
+
+#taken from https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
+from contextlib import contextmanager
+import ctypes
+import io
+import os, sys
+import tempfile
+
+libc = ctypes.CDLL(None)
+c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
+
+
+def _redirect_stdout(to_fd):
+    """Redirect stdout to the given file descriptor."""
+    # Flush the C-level buffer stdout
+    libc.fflush(c_stdout)
+    # Flush and close sys.stdout - also closes the file descriptor (fd)
+    sys.stdout.close()
+    # Make original_stdout_fd point to the same file as to_fd
+    os.dup2(to_fd, original_stdout_fd)
+    # Create a new sys.stdout that points to the redirected fd
+    sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
+
+@contextmanager
+def stdout_redirector(stream):
+    # The original fd stdout points to. Usually 1 on POSIX systems.
+    original_stdout_fd = sys.stdout.fileno()
+
+    # Save a copy of the original stdout fd in saved_stdout_fd
+    saved_stdout_fd = os.dup(original_stdout_fd)
+    try:
+        # Create a temporary file and redirect stdout to it
+        tfile = tempfile.TemporaryFile(mode='w+b')
+        _redirect_stdout(tfile.fileno())
+        # Yield to caller, then redirect stdout back to the saved fd
+        yield
+        _redirect_stdout(saved_stdout_fd)
+        # Copy contents of temporary file to the given stream
+        tfile.flush()
+        tfile.seek(0, io.SEEK_SET)
+        stream.write(tfile.read())
+    finally:
+        tfile.close()
+        os.close(saved_stdout_fd)
