@@ -122,7 +122,7 @@ def find_annotation(record, label):
     raise ValueError("label not found: " + label)
 
 def insert_into_vector(vector, destination_label, new_seq_record):
-    """Inserts sequence record into a vector at a feature labled with """
+    """Inserts sequence record into a vector at a feature labled with destination_label """
     vector = copy.deepcopy(vector)
 
     destination_annotation = find_annotation(vector, destination_label)

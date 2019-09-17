@@ -375,7 +375,7 @@ def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_fo
     import pymol
     from pymol import cmd
     if out_name is None:
-        out_name = truncator.basename_noext(pdb_name).replace('.pdb', '')+"_A"
+        out_name = truncator.basename_noext(pdb_name).replace('.pdb', '')+"_"+chain
     cmd.delete('all')
     cmd.load(pdb_name)
     #TAKE ONLY CHAIN X (and not the others)
