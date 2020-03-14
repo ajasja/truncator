@@ -455,3 +455,24 @@ def stdout_redirector(stream):
     finally:
         tfile.close()
         os.close(saved_stdout_fd)
+
+
+def load_error_prediction_data(npz_file):
+    '''
+        Metric types are:
+    lddt, pe40, pe20, pe10, pe05
+    '''
+    import numpy as np
+    dat = np.load(npz_file)
+    
+    lddt = dat["lddt"] 
+    esto = dat["estogram"]
+    res = {
+        'lddt': lddt,
+        'pe40': 1-np.mean(np.sum(esto[:,:,:4], axis=-1) + np.sum(esto[:,:,11:], axis=-1), axis=-1),
+        'pe20': 1-np.mean(np.sum(esto[:,:,:5], axis=-1) + np.sum(esto[:,:,10:], axis=-1), axis=-1),
+        'pe10': 1-np.mean(np.sum(esto[:,:,:6], axis=-1) + np.sum(esto[:,:,9:], axis=-1), axis=-1),
+        'pe05': 1-np.mean(np.sum(esto[:,:,:7], axis=-1) + np.sum(esto[:,:,8:], axis=-1), axis=-1),
+    }
+
+    return res
