@@ -58,7 +58,10 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
                                                   resAdjustmentRangeSide1="-1,1", 
                                                   resAdjustmentRangeSide2="-1,1",
                                                   allowed_loop_abegos="AGBA,ABBA,AGBBA,ABABA,ABBBA,AGABBA,ABBBBA,AGBBBA",
-                                                  RMSthreshold="0.5"):
+                                                  RMSthreshold="0.5", 
+                                                  extra_script_vars=None,
+                                                  tasks_file=None,
+                                                  numID=None):
     """Reloop files"""   
 
     rosetta_bin=os.path.abspath(rosetta_bin)
@@ -73,41 +76,52 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
         suffix = ""
 
 
+    preffix = ""
     base_name = truncator.basename_noext(input_pdb) 
+    if not numID is None:
+        preffix = str(numID) + "__" 
+        base_name = preffix + base_name
+        
     out_dir = out_dir+"/"+base_name+suffix
     truncator.make_dirs(out_dir)
     
     if score_file is None: score_file =  base_name+suffix+".sc"
     if log_file is None: log_file =      base_name+suffix+".log"
-    pdb_file   =                         base_name+suffix+".pdb"
+    out_pdb_file   =                     base_name+suffix+".pdb"
 
     
 
     if clean_existing:
         truncator.remove_file(out_dir+"/"+score_file)
         truncator.remove_file(out_dir+"/"+log_file)
-        truncator.remove_file(out_dir+"/"+pdb_file)
+        truncator.remove_file(out_dir+"/"+out_pdb_file)
 
     if tee: 
-        redir_str = '| tee'
+        redir_str = ' | tee '
     else:
-        redir_str = '>'
+        redir_str = ' > '
 
     script_vars="chain_connections loopLengthRange resAdjustmentRangeSide1 resAdjustmentRangeSide2 allowed_loop_abegos RMSthreshold".split()
 
     script_vars_str = ''
     vals = locals()
+    
+    if extra_script_vars:
+        script_vars = script_vars + list(extra_script_vars.keys())
+        vals.update(extra_script_vars)
+
     for sv in script_vars:
         script_vars_str += f"{sv}=\"{vals[sv]}\" "
 
 
 #   -out:path:pdb {out_dir} \
-
+   
     cmd = f" \
     -parser:protocol {script_name} -s {input_pdb} \
     -indexed_structure_store:fragment_store  {structure_store} \
-    -out:suffix {suffix} \
     -out:file:scorefile  {score_file} \
+    -out:suffix {suffix} \
+    -out:prefix {preffix} \
     -beta \
     -in:file:fullatom \
     -renumber_pdb 1 \
@@ -118,13 +132,14 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
     -parser:script_vars {script_vars_str} \
     -out:no_nstruct_label \
     {extra_flags} \
-    {redir_str} {log_file}".replace('    ','')
+    ".replace('    ','')
     
 
-        
-
-    cmd = f"cd {out_dir}; {rosetta_bin} {cmd}"
-
+    prefix = f"mkdir -p {out_dir} && cd {out_dir} && "  
+    cmd = prefix + "/usr/bin/time -v sh -c '" + rosetta_bin + " " + cmd +  "' 2>&1 " + redir_str + log_file
+    
+    if tasks_file:
+        print(cmd, file=tasks_file)
 
     if verbose:
        truncator.pp_flags(cmd)
@@ -141,7 +156,7 @@ def reloop(input_pdb, out_dir=None, script_name='truncator/xml/12_redesign_loops
     return truncator.ScriptRunResult(log_file, score_file, None, status, cmd)
     #return log_file    
 
-
+from IPython import get_ipython
 def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.xml', 
                                                   rosetta_bin="/software/rosetta/latest/bin/rosetta_scripts",
                                                   extra_flags="-chemical:exclude_patches LowerDNA  UpperDNA Cterm_amidation VirtualBB ShoveBB VirtualDNAPhosphate VirtualNTerm CTermConnect sc_orbitals pro_hydroxylated_case1 pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated  tyr_phosphorylated tyr_sulfated lys_dimethylated lys_monomethylated  lys_trimethylated lys_acetylated glu_carboxylated cys_acetylated tyr_diiodinated N_acetylated C_methylamidated MethylatedProteinCterm",
@@ -152,6 +167,7 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
                                                   add_suffix = True,
                                                   charge_constraints_chA = "",
                                                   charge_constraints_chB = "",
+                                                  max_arg = "", parallel_str="",
 ):
     """Fix the surface output"""   
 
@@ -160,7 +176,9 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
     input_pdb=os.path.abspath(input_pdb)
     charge_constraints_chA=os.path.abspath(charge_constraints_chA)
     charge_constraints_chB=os.path.abspath(charge_constraints_chB)
-
+    max_arg=os.path.abspath(max_arg
+    
+    )
     if add_suffix:
         suffix = f"__ch-5"
     else:
@@ -186,7 +204,7 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
     else:
         redir_str = '>'
 
-    script_vars="charge_constraints_chA charge_constraints_chB".split()
+    script_vars="charge_constraints_chA charge_constraints_chB max_arg".split()
 
     script_vars_str = ''
     vals = locals()
@@ -202,7 +220,7 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
     -out:file:scorefile  {score_file} \
     -beta \
     -in:file:fullatom \
-    -renumber_pdb 1 \
+    -renumber_pdb 0 \
     -out:file:pdb_comments true \
     -run:preserve_header true \
     -out:file:scorefile_format json \
@@ -213,7 +231,7 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
     {redir_str} {log_file}".replace('    ','')
     
 
-    cmd = f"cd {out_dir}; {rosetta_bin} {cmd}"
+    cmd = f"cd {out_dir} && {rosetta_bin} {cmd} {parallel_str}"
 
 
     if verbose:
@@ -223,7 +241,9 @@ def fix_surface(input_pdb, out_dir=None, script_name='truncator/xml/31_fix_surf.
         print("SKIPPING: "+log_file)
         
     if not test_run:
-        status = os.system(cmd)
+        get_ipython().system(cmd)
+        status = 0
+        #status = os.system(cmd)
     else:
         status = 0
     
