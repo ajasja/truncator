@@ -1,4 +1,4 @@
-"""Taken from Ryab Kibler"""
+"""Taken from Ryan Kibler"""
 
 #import json
 from collections import Counter
@@ -72,6 +72,8 @@ def replace_sequence_in_record(record, location, new_seq):
             ##THINK! does strand even matter? How is start and end defined? I'm assuming that for strand -1 things are flipped but that's probably not how it's implemented. Also, consider strand = 0 (no direction). There is probably an easier way.
             elif subloc.start >= location.start and subloc.start <= location.end:
                 #print("start: %d is in %s" % (subloc.start, location))
+                #print("end: %d is in %s" % (subloc.end, location))
+                #print("seq_diff: ", seq_diff)
                 new_loc = FeatureLocation(location.end + seq_diff, subloc.end + seq_diff, strand=subloc.strand)
 
             elif subloc.end >= location.start and subloc.end <= location.end:
@@ -114,7 +116,7 @@ def replace_sequence_in_record(record, location, new_seq):
 
 def find_annotation(record, label):
     for feat in record.features:
-        if label == feat.qualifiers['label'][0]:
+        if ('label' in feat.qualifiers) and label == feat.qualifiers['label'][0]:
             #I will be replacing it so remove it:
             #vector.features.remove(feat)
             return feat
