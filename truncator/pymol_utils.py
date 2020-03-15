@@ -208,7 +208,7 @@ def read_file(filename):
     return data  
 
 def apply_unsat_group(unsat_groups, print_cmd=False):
-    """Parses and unsat group (name: \n UNsatisfied )"""
+    """Parses an unsat group from BuriedUnsatHbonds (name: \n Unsatisfied HEAVY polar atom at residue 51: HIS  ND1 \n ... )"""
     lines = unsat_groups.split('\n')
     #name is the first line, skip the last colon
     name = lines.pop(0)[:-2]
@@ -234,7 +234,7 @@ def apply_unsat_group(unsat_groups, print_cmd=False):
     else:
         cmd.do(cmd_str)
 
-
+import re
 find_unsat_sections = re.compile(r"^BuriedUnsatHbonds\s(.*?)\s\sall_heavy_atom_unsats", re.MULTILINE | re.DOTALL | re.S)
 
 def import_unsats_from_pdb(pdb_path, print_cmd=False):
@@ -245,6 +245,9 @@ def import_unsats_from_pdb(pdb_path, print_cmd=False):
     for unsat_group in unsat_groups:
         apply_unsat_group(unsat_group, print_cmd)
 
+
+load_unsats = import_unsats_from_pdb
+cmd.extend("load_unsats", load_unsats)
 
 def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd=False):
     '''Imports an array of values from the npz file
