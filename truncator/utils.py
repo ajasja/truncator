@@ -131,9 +131,14 @@ def ensure_file_name(file_name, base_file_name, ext):
 
 
 def basename_noext(filename):
-    """Returns the basename without extension"""
+    """Returns the basename without extension. Handles pdb.gz, tar.zip, etc"""
     base_name = os.path.basename(filename) 
     base, existing_ext = os.path.splitext(base_name)
+    if existing_ext in ['.zip', '.gz']:
+        new_base, new_existing_ext = os.path.splitext(base)
+        #there might be other dots in the file name, so use some heuristic
+        if len(new_existing_ext)<=4:
+            base=new_base
     return base
 
 def make_dirs(dir_path):
