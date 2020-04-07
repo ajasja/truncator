@@ -481,3 +481,12 @@ def load_error_prediction_data(npz_file):
     }
 
     return res
+
+
+def get_indices_from_str_field(field, indices):
+    """Extracts characters from a pandas string series"""
+    res = field.str.get(indices[0])
+    for i in indices[1:]:
+        res = res + field.str.get(i)
+    
+    return res
