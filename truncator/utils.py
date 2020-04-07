@@ -386,6 +386,11 @@ def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_fo
     #TAKE ONLY CHAIN X (and not the others)
     cmd.remove(f'not chain {chain}')
 
+    myspace = {'seq': []}
+    cmd.iterate('(name CA)', 'seq.append(oneletter)', space=myspace)
+ 
+    seq = ''.join(myspace['seq'])
+    
 
     truncator.make_dirs(out_dir)
     with truncator.working_directory(out_dir):
@@ -398,6 +403,7 @@ def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_fo
         else:    
             cmd.do(f"save {out_name}{out_format}")
 
+    return seq
 
 import os, errno
 
