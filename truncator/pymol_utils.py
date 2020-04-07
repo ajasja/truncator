@@ -201,10 +201,15 @@ def load_with_selections(pdb_path, print_cmd=False):
 load_ws = load_with_selections
 cmd.extend("load_ws", load_with_selections)
 
-
+import gzip
 def read_file(filename):
-    with open(filename, 'r') as myfile:
-        data = myfile.read()
+    """Reads a file. Supports gzip files if ending is .gz"""
+    if filename.endswith('.gz'):
+        with gzip.open(filename, 'rt') as myfile:
+            data = myfile.read()
+    else:
+        with open(filename, 'rt') as myfile:
+            data = myfile.read()
     return data  
 
 def apply_unsat_group(unsat_groups, print_cmd=False):
