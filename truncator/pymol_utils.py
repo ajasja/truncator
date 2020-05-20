@@ -7,6 +7,23 @@ except:
     print("Pymol is most likely not installed")
 
 
+def get_pymol_name(file_name):
+    """Gets pymol name from file name"""
+    name = os.path.basename(file_name)
+    name = os.path.splitext(name)[0]
+    name = cmd.get_legal_name(name)
+    return name
+
+def resolve_object_or_file_name(file_or_name):
+    """Decides if the name is file path or an object name. 
+    If it is a file path it loads the object and returns the name."""
+    if os.path.exists(file_or_name):
+        name = get_pymol_name(file_or_name)
+        cmd.load(file_or_name, name)
+    else:
+        name = file_or_name
+    return name
+
 def get_ss(sel_str):
     """returns the secondary structure of selection as a string"""
     stored.ss_array = []
@@ -240,7 +257,7 @@ def apply_unsat_group(unsat_groups, print_cmd=False):
         cmd.do(cmd_str)
 
 import re
-find_unsat_sections = re.compile(r"^BuriedUnsatHbonds\s(.*?)\s\sall_heavy_atom_unsats", re.MULTILINE | re.DOTALL | re.S)
+find_unsat_sections = re.compile(r"^BuriedUnsatHbonds\s(.*?)\s\sall_heavy_atom_unsats", re.MULTILINE | re.DOTALL )
 
 def import_unsats_from_pdb(pdb_path, print_cmd=False):
     """Greps the PDB file for unsat blocks and turns them into pymol selections"""
@@ -596,14 +613,14 @@ def mutate_residue(sele, target_3resname, cmd=pymol.cmd):
 
 cmd.extend("mutate_residue", mutate_residue)
 
-def pymol_display(cmd=pymol.cmd):
+def pymol_display(cmd=pymol.cmd, ray=False):
     """Displays the pymol session in a Jupyter notebook"""
     
     from IPython.display import Image
     from tempfile import mktemp
     import os
     image_name = mktemp()+'.png'
-    cmd.png(image_name, ray=0)
+    cmd.png(image_name, ray=ray)
     im = Image(filename=image_name)
     os.remove(image_name)
     return im
