@@ -70,3 +70,26 @@ def get_selector_resids(selector, pose):
     res_ids = [str(id_) for id_ in res_ids]
     return ",".join(res_ids)
 
+import pyrosetta.distributed.io
+def pose_to_pdb_file(packed_pose, filename):
+    with open(filename, "w+") as opdb:
+        opdb.write(pyrosetta.distributed.io.to_pdbstring(packed_pose))
+
+def add_labels_to_pose(pose, resids, label, error_on_out_of_bounds_index=False):
+    pdb_info = pose.pdb_info()
+    N = len(pose.residues)
+    for resid in resids:
+        resid = int(resid)
+        if (resid<=N) or error_on_out_of_bounds_index: 
+            pdb_info.add_reslabel(resid, label)
+        
+
+def add_labels_to_pdb(pdb, resids, label, out_name=None, error_on_out_of_bounds_index=False):
+    pose = pyrosetta.io.pose_from_pdb(pdb)
+    add_labels_to_pose(pose, resids, label, error_on_out_of_bounds_index)
+    
+    if out_name is None:
+        out_name = pdb
+    
+    pose_to_pdb_file(pose, out_name)
+    return pose
