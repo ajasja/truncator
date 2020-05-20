@@ -16,6 +16,8 @@ except NameError:
 
 
 
+
+
 def notebook_setup(init_flags=str):
     import pyrosetta
     flags = " ".join(init_flags.split())
@@ -79,6 +81,7 @@ def read_json(filename):
         return json.load(_file)
 
 def read_info_file(file_name, ext=None):
+    """Reads info file, or returns empty dict if file does not exists"""
     if not ext is None:
         file_name = file_name.replace(".gz","").replace(".pdb","")
         file_name = file_name+ext
@@ -87,6 +90,16 @@ def read_info_file(file_name, ext=None):
     else:
         print(f"WARNING: info file not found: {file_name}")
         return {}
+
+def write_info_file(file_name, ext=None, info=None):
+    """Writes info file, or returns empty dict if file does not exists"""
+    if not ext is None:
+        file_name = file_name.replace(".gz","").replace(".pdb","")
+        file_name = file_name+ext
+    
+    if info is None:
+        raise "Info can not be none"
+    write_json(file_name, info)
 
 def replace_extension(file_name, ext):
     """Replace extension of file_name with ext. Ext can contain a dot or not"""
@@ -496,3 +509,19 @@ def get_indices_from_str_field(field, indices):
         res = res + field.str.get(i)
     
     return res
+
+def invert_indices(indices_str, a_len):
+    """Takes a comma separated list and returns LEN-X=1 list. That is it counts indices from the end"""
+    ind = indices_str.split(",")
+    #print(ind)
+    if ind==[''] or ind==['']:
+        return ""
+    ind = np.array(ind, int)
+    #reverse indices
+    ind = a_len - ind + 1
+    ind = np.array(ind, str)
+    ind = ",".join(ind)
+    return ind
+#assert invert_indices("1,2,3",5) == '5,4,3'
+#assert invert_indices("3",5) == '3'
+#assert invert_indices("",5) == ''
