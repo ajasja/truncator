@@ -6,6 +6,7 @@ try:
 except:
     print("Pymol is most likely not installed")
 
+import os
 
 def get_pymol_name(file_name):
     """Gets pymol name from file name"""
@@ -229,7 +230,7 @@ def read_file(filename):
             data = myfile.read()
     return data  
 
-def apply_unsat_group(unsat_groups, print_cmd=False):
+def apply_unsat_group(unsat_groups, object_name='all', print_cmd=False):
     """Parses an unsat group from BuriedUnsatHbonds (name: \n Unsatisfied HEAVY polar atom at residue 51: HIS  ND1 \n ... )"""
     lines = unsat_groups.split('\n')
     #name is the first line, skip the last colon
@@ -249,7 +250,8 @@ def apply_unsat_group(unsat_groups, print_cmd=False):
         #print(sele)
         selections.append(sele)
     selections_str = " or ".join(selections)
-    cmd_str = f"select {name}_unsats, {selections_str}"
+    selections_str = f"(({selections_str}) and {object_name})"
+    cmd_str = f"select {name}_unsats_{object_name}, {selections_str}"
     
     if print_cmd:
         print(cmd_str)
@@ -259,13 +261,16 @@ def apply_unsat_group(unsat_groups, print_cmd=False):
 import re
 find_unsat_sections = re.compile(r"^BuriedUnsatHbonds\s(.*?)\s\sall_heavy_atom_unsats", re.MULTILINE | re.DOTALL )
 
-def import_unsats_from_pdb(pdb_path, print_cmd=False):
+def import_unsats_from_pdb(pdb_path, object_name=None, print_cmd=False):
     """Greps the PDB file for unsat blocks and turns them into pymol selections"""
     file_str = read_file(pdb_path)
+    
+    if object_name is None:
+        object_name = get_pymol_name(pdb_path)
     unsat_groups = re.findall(find_unsat_sections, file_str)
     
     for unsat_group in unsat_groups:
-        apply_unsat_group(unsat_group, print_cmd)
+        apply_unsat_group(unsat_group, object_name=object_name, print_cmd=print_cmd)
 
 
 load_unsats = import_unsats_from_pdb
@@ -308,12 +313,15 @@ def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd
 apply_erp = apply_metric_from_npz
 cmd.extend("apply_erp", apply_metric_from_npz)
 
-def load_with_error_metrics(pdb_path, metric_type='lddt', selection='all', npz_path=None, print_cmd=False):
+def load_with_error_metrics(pdb_path, metric_type='lddt', selection=None, npz_path=None, print_cmd=False):
     """Loads a PDB and the error metrics"""
     
     if npz_path is None:
-        npz_path=pdb_path.replace('.pdb', '.npz')
-        
+        npz_path = pdb_path.replace('.pdb', '.npz')
+
+    if selection is None:
+        selection = get_pymol_name(pdb_path)     
+
     cmd_str=f"load {pdb_path}"
     if print_cmd:
         print(cmd_str)
@@ -611,7 +619,29 @@ def mutate_residue(sele, target_3resname, cmd=pymol.cmd):
     #close wizard
     cmd.set_wizard()
 
+
+
 cmd.extend("mutate_residue", mutate_residue)
+
+
+def transfer_residue(from_sele, to_sele, copy_rotamer=False):
+    """Mutates residue 'to_sele' to the same type as 'from_sele'
+    from_sele and to_sele must only be one residues.
+    
+    TODO: Copy rotamer angles, better error message
+    """
+    from_res = cmd.get_model(from_sele +' and name CA')
+    assert  len(from_res.atom)==1, 'only one from res allowed but got more'
+    from_res = from_res.atom[0]
+    
+    to_res = cmd.get_model(to_sele +' and name CA')
+    assert  len(to_res.atom)==1, 'only one from res allowed but got more'
+    to_res = to_res.atom[0]
+    
+    #print(from_res.resn)
+    mutate_residue(to_sele, from_res.resn)
+
+cmd.extend("transfer_residue", transfer_residue)
 
 def pymol_display(cmd=pymol.cmd, ray=False):
     """Displays the pymol session in a Jupyter notebook"""
