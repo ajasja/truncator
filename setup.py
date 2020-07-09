@@ -35,9 +35,9 @@ setup(
 
     package_data={
         # If any package contains *.txt or *.rst files, include them:
-        '': 'truncator',
+        '': ['truncator'],
         '': ['*.txt', '*.md'],
-        '': 'bin',
+        '': ['bin'],
         # And include any *.msg files found in the 'hello' package, too:
         #'hello': ['*.msg'],
     },
