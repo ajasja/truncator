@@ -4,6 +4,8 @@ try:
     from pymol import stored
     from pymol import CmdException
 except:
+    cmd = None
+    pymol = None
     print("Pymol is most likely not installed")
 
 import os
@@ -461,13 +463,22 @@ def interface_residues(cmpx, cA='c. A', cB='c. B', cutoff=1.0, selName="interfac
 cmd.extend("interface_residues", interface_residues)
 
 
-def get_chainbreaks(objname, cutoff_A=2, cmd=None):
+def get_chainbreaks(objname_or_file, cutoff_A=2, cmd=None, delete_all_before_load=False):
     """Returns the resi where the chain break is. The next residue is in a different place 
     N --chain_break-- N+1  .Returns N."""
     import numpy as np
     if cmd is None:
         import pymol
         cmd = pymol.cmd
+
+    if os.path.exists(objname_or_file):
+        objname = get_pymol_name(objname_or_file)
+        if delete_all_before_load:
+            cmd.delete('all')
+        cmd.load(objname_or_file, object=objname)
+    else:
+        objname = objname_or_file 
+
     C_atoms = cmd.get_coords(objname+" and name C", 1)
     N_atoms = cmd.get_coords(objname+" and name N", 1)
     #subastract the C from the N of the next residue
