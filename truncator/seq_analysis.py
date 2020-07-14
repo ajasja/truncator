@@ -63,6 +63,8 @@ def analyse_sequence(seq, name=None, pH=7.5, initial_dict=None):
         res = {}
     else:
         res = initial_dict
+    
+    
     ana = ProteinAnalysis(seq)
     
     if not (name is None):
@@ -102,19 +104,26 @@ def add_seq_fields(df, fields=None):
         df[field] = fields[field]    
     return df
 
-def fasta_to_dataframe(fasta, pH=7.5):
-    """Coverts a fasta file to a data frame"""
+def fasta_to_dataframe(fasta, pH=7.5, ignore_seq='*EGDII'):
+    """Coverts a fasta file to a data frame. Ignores the seq `ignore_seq` (for example from a ribosome binding site)"""
     from Bio import SeqIO
     fastas_dict = {}
     res = []
     for record in SeqIO.parse(fasta, "fasta"):
-        fastas_dict[record.id]=str(record.seq)
+        seq = str(record.seq)
+        seq = seq.replace(ignore_seq,'')
+        if seq.endswith('**'):
+            seq=seq[:-2]
+        if seq.endswith('*'):
+            seq=seq[:-1]
+        fastas_dict[record.id]=seq
   
     
     for name in fastas_dict.keys():
         line = {}
         line['name'] = name
         line['sequence'] = fastas_dict[name]
+        #print(fastas_dict[name])
         line = truncator.analyse_sequence(line['sequence'], pH=7.5, initial_dict=line)
         res.append(line)
     return pd.DataFrame(res, columns=res[0].keys())
