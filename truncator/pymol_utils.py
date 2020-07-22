@@ -206,7 +206,7 @@ def import_selections_from_pdb(pdb_path, print_cmd=False):
     """Loads selection strings from the PDB file"""
     seles = grep_file(pdb_path, r"^.*_pymol_selection")
     for sel in seles:
-        apply_read_selections(sel, print_cmd)
+        apply_read_selections(sel, print_cmd=print_cmd)
 
 
 def load_with_selections(pdb_path, print_cmd=False):
@@ -216,7 +216,7 @@ def load_with_selections(pdb_path, print_cmd=False):
         print(cmd_str)
     else:
         cmd.do(cmd_str)
-    import_selections_from_pdb(pdb_path, print_cmd)
+    import_selections_from_pdb(pdb_path, print_cmd=print_cmd)
 
 load_ws = load_with_selections
 cmd.extend("load_ws", load_with_selections)

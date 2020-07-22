@@ -525,3 +525,42 @@ def invert_indices(indices_str, a_len):
 #assert invert_indices("1,2,3",5) == '5,4,3'
 #assert invert_indices("3",5) == '3'
 #assert invert_indices("",5) == ''
+
+
+def keep_indices(indices0, string : str, rep_char='-') ->str:
+    """Replaces positions not in indices with `rep_char`"""
+    #make mutable
+    a = list(string)
+    for n in range(len(a)):
+        if n not in indices0:
+            a[n] = rep_char
+    #print(a)
+    return ''.join(a)
+
+#assert keep_indices([1,3], 'ABCDE') == '-B-D-'
+
+def keep_indices1(indices1, string : str, rep_char='-') ->str:
+    """Positions are 1 based. Replaces positions not in indices with `rep_char`"""
+    indices0 = [int(i)-1 for i in indices1]
+    return keep_indices(indices0, string, rep_char)
+
+#assert keep_indices([1,3], 'ABCDE') == 'A-C--'
+
+def lock_seq_mismatches(lock_seq: str, seq: str):
+    """Compares a lock_seq with seq, ignoring '-' chars. Returns the indices1 of mismatches"""
+    return ""
+
+def lock_seq_mismatches1(lock_seq: str, seq: str):
+    """Compares a lock_seq with seq, ignoring '-' chars. Returns the indices1 of mismatches"""
+    mismatches = []  
+    for n in range(len(lock_seq)):
+        if lock_seq[n] == '-':
+            continue
+        if lock_seq[n]!=seq[n]:
+            mismatches.append(n+1)
+    
+    return mismatches
+#assert lock_seq_mismatches1('A-C--', 'ABCDE') == []
+#assert lock_seq_mismatches1('A-D--', 'ABCDE') == [3]
+#assert lock_seq_mismatches1('A-D--', 'ABCDEFGH') == [3]
+#assert lock_seq_mismatches1('A-D---------', 'ABCDEFGH') == [3]
