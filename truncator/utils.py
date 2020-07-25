@@ -53,12 +53,12 @@ def init_env(flags, workers=10,
 
 
 def read_file(filename):
-    with open(filename, 'r') as myfile:
+    with opengz(filename, 'rt') as myfile:
         data = myfile.read()
     return data         
 
 def read_file_lines(filename, trim=False, skip_comments=False):
-    with open(filename, 'r') as myfile:
+    with opengz(filename, 'rt') as myfile:
         lines = myfile.readlines()
     if trim or skip_comments:
         lines = [line.strip() for line in lines]
@@ -67,17 +67,27 @@ def read_file_lines(filename, trim=False, skip_comments=False):
     return lines 
 
 def write_file(filename, str):
-    with open(filename, 'w') as myfile:
+    with opengz(filename, 'wt') as myfile:
         myfile.write(str)
 
+
+def opengz(filename, mode):
+    """Return either the system open or the gzip open """
+    import gzip
+    if filename.endswith('.gz'):
+        return gzip.open(filename, mode)
+    else:
+        return open(filename, mode)
+
 def write_json(filename, data):
+    import gzip
     import json
-    with open(filename, 'w') as outfile:
+    with opengz(filename, 'wt') as outfile:
         json.dump(data, outfile,  indent=4)
 
 def read_json(filename):
     import json
-    with open(filename, 'r') as _file:
+    with opengz(filename, 'rt') as _file:
         return json.load(_file)
 
 def read_info_file(file_name, ext=None):
