@@ -665,3 +665,59 @@ def pymol_display(cmd=pymol.cmd, ray=False):
     im = Image(filename=image_name)
     os.remove(image_name)
     return im
+
+
+def get_rmsd(ob_file1, ob_file2, align=False, cmd=None, sub_sel='chain A and name CA', cleanup=True)->int:
+    """
+    [summary]
+
+    Parameters
+    ----------
+    ob_file1 : file or obj name
+        file or obj name
+    ob_file2 : file or obj name
+        file or obj name
+    align : bool, optional
+        Align before calculating the RMSD, by default False
+    cmd :
+        pymol cmd module, by default None
+    sub_sel : str, optional
+        substring to select, by default 'chain A and name CA'
+    cleanup : bool, optional
+        delete models after comparing, by default True
+
+    Returns
+    -------
+    int
+        RMSD
+    """    
+    """Returns RMSD."""
+    if cmd is None:
+        import pymol
+        cmd = pymol.cmd
+    
+    if os.path.exists(ob_file1):
+        ob1 = get_pymol_name(ob_file1)
+        cmd.load(ob_file1, object=ob1)
+    else:
+        ob1 = ob_file1 
+        
+    if os.path.exists(ob_file2):
+        ob2 = get_pymol_name(ob_file2)
+        cmd.load(ob_file2, object=ob2)
+    else:
+        ob2 = ob_file2    
+        
+    #return None
+    #cmd.remove('not chain A')
+    if align:
+        rmsd =  cmd.rms(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=10, cycles=0)
+    else:
+        rmsd =  cmd.rms_cur(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=10, cycles=0)
+
+    if cleanup:
+        cmd.delete(ob1)
+        cmd.delete(ob2)
+        
+    return rmsd
+
