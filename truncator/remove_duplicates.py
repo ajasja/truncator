@@ -1,9 +1,9 @@
 from .pymol_utils import *
 import os
 
-def remove_duplicates_rmsd(pdb_list, rmsd_cutoff=0.5, extra_list=None, verbose=False):
+def remove_duplicates_rmsd(pdb_list, rmsd_cutoff=0.5, extra_list=None, verbose=False, sub_sel='name CA', align=False):
     """Remove duplicates from a list of pdbs based on the RMSD. Eveythin below the rmsd_cutoff is considert a duplicate. 
-    The first file name is kept. Returns a list of unique structures. Takes an extra list (of indices etc, than gets trited the same way)"""
+    The first file name is kept. Returns a list of unique structures. Takes an extra list (of indices etc, than gets treated the same way)"""
     m=0
     
     pdb_list = list(pdb_list)
@@ -22,7 +22,7 @@ def remove_duplicates_rmsd(pdb_list, rmsd_cutoff=0.5, extra_list=None, verbose=F
                 print(m,n)
             assert os.path.exists(pdb_list[m]), f'{pdb_list[m]} does not exist' 
             assert os.path.exists(pdb_list[n]), f'{pdb_list[n]} does not exist'
-            rmsd = get_rmsd(pdb_list[m], pdb_list[n], align=False, cleanup=True)
+            rmsd = get_rmsd(pdb_list[m], pdb_list[n], align=align, sub_sel=sub_sel, cleanup=True)
             if verbose:
                print(f"{pdb_list[m]}\n{pdb_list[n]}\nRMDS:{rmsd}") 
             if rmsd<rmsd_cutoff:
