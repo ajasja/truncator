@@ -491,13 +491,25 @@ def stdout_redirector(stream):
         os.close(saved_stdout_fd)
 
 
-def load_error_prediction_data(npz_file):
+
+
+def load_error_prediction_data(npz_or_json_file):
     '''
         Metric types are:
     lddt, pe40, pe20, pe10, pe05
     '''
     import numpy as np
-    dat = np.load(npz_file)
+    if npz_or_json_file.endswith('.json') or npz_or_json_file.endswith('.json.gz') or \
+       npz_or_json_file.endswith('.errpred') or npz_or_json_file.endswith('.errpred.gz'):
+        data = truncator.read_json(npz_or_json_file) 
+        
+        #convert to np arrays
+        for key in data.keys():
+            data[key] = np.array(data[key])
+        return data 
+    
+   
+    dat = np.load(npz_or_json_file)
     
     lddt = dat["lddt"] 
     esto = dat["estogram"]

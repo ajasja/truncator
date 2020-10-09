@@ -9,11 +9,19 @@ except:
     print("Pymol is most likely not installed")
 
 import os
+import re
+import itertools
+flatten = itertools.chain.from_iterable
+import itertools
+import gzip
 
 def get_pymol_name(file_name):
     """Gets pymol name from file name"""
     name = os.path.basename(file_name)
     name = os.path.splitext(name)[0]
+    #make it work with pdb.gz
+    if name.endswith('.pdb'):
+        name = name[:-4]
     name = cmd.get_legal_name(name)
     return name
 
@@ -42,10 +50,6 @@ def get_selection_property(sel_str, property="resi"):
 
 
 get_sp = get_selection_property
-
-
-import itertools
-
 
 
 def get_helices(sele="all"):
@@ -111,6 +115,8 @@ def clash_check_CA(selA, selB, distance=4.0, sele_name=None):
         cmd.select(sele_name, selection=sel_str)
     return model.nAtom
 
+def get_distance2(c1, c2):
+    return ((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2)
 
 def get_distance(c1, c2):
     return ((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2) ** 0.5
@@ -131,14 +137,25 @@ def get_alignment_map(from_sel, to_sel, max_distance=1.8):
         # print(f"({to_sel}) within {max_distance} of ({from_sel} and chain {at.chain} and resi {at.resi})")
         # print(to_model.nAtom)
         if to_model.nAtom > 1:
-            print(
-                f"WARNING: more than one atom ({to_model.nAtom}) within {from_sel} and chain {at.chain} and resi {at.resi}"
-            )
-        ch_res_id = f"{at.chain}_{at.resi}"
-        if to_model.nAtom > 0:
+            #print(f"WARNING: more than one atom ({to_model.nAtom}) within {from_sel} and chain {at.chain} and resi {at.resi}. Choosing the closest")
+            dist_pairs = []
+            # sort the distances
+            for to_atom in to_model.atom:
+                dist_pairs.append( (get_distance2(to_atom.coord, at.coord), to_atom) )
+            sorted_dist = sorted(dist_pairs, key = lambda x:x[0])
+            to_model_dist, to_model_at = sorted_dist[0]
+            to_model_dist = to_model_dist**0.5   
+        elif to_model.nAtom == 1:
             to_model_at = to_model.atom[0]
+            to_model_dist = get_distance(at.coord, to_model_at.coord)
+        else:
+            to_model_at = None
+            to_model_dist = None
+        
+        ch_res_id = f"{at.chain}_{at.resi}"    
+        if to_model_at: 
             mapping[ch_res_id] = f"{to_model_at.chain}_{to_model_at.resi}"
-            distances[ch_res_id] = get_distance(at.coord, to_model_at.coord)
+            distances[ch_res_id] = to_model_dist
         else:
             mapping[ch_res_id] = None
             distances[ch_res_id] = None
@@ -176,21 +193,90 @@ def color_by_pdb_id_list(name, pdb_ids, color="red"):
 cmd.extend("color_by_selar", color_by_selector_array)
 
 
-import re
-
+def opengz(filename, mode):
+    """Return either the system open or the gzip open """
+    if filename.endswith('.gz'):
+        return gzip.open(filename, mode)
+    else:
+        return open(filename, mode)
 
 def grep_file(file_name, expression):
     """Searches file and returns lines matching regular expression"""
     result = []
     
-    with open(file_name, 'r') as file:
+    with opengz(file_name, 'rt') as file:
         for line in file:
             #print(line)
             if re.search(expression, line): 
                 result.append(line.strip())
     return result
 
+def grep_lines(lines, expression):
+    """Returns lines matchin expression"""
+    result = []
+    for line in lines:
+        #print(line)
+        if re.search(expression, line): 
+            result.append(line.strip())
+    return result
+
+
+def read_file(filename):
+    """Reads a file. Supports gzip files if ending is .gz"""
+    if filename.endswith('.gz'):
+        with gzip.open(filename, 'rt') as myfile:
+            data = myfile.read()
+    else:
+        with open(filename, 'rt') as myfile:
+            data = myfile.read()
+    return data  
+
 #grep_file('out/repacked/ALAF05_8x/ALAF05_8x.pdb', r"^.*_pymol_selection")
+
+def load_with_labels(pdb_path, print_cmd=False, prefix=''):
+    """Loads a PDB and it's selections"""
+    cmd_str=f"load {pdb_path}"
+    if print_cmd:
+        print(cmd_str)
+    else:
+        cmd.do(cmd_str)
+    import_labels_from_pdb(pdb_path, print_cmd=print_cmd, prefix=prefix)
+
+load_wl = load_with_labels
+cmd.extend("load_wl", load_wl)
+
+
+def import_labels_from_pdb(pdb_path, print_cmd=False, ignore_res_seq_labels=True, load_labels=None, prefix=''):
+    labels = grep_file(pdb_path, r"^REMARK PDBinfo-LABEL: ")
+    #clean up first part
+    labels = [lb.replace('REMARK PDBinfo-LABEL:','').strip() for lb in labels]
+    # get all the different labels (split off the number and take the rest)
+    if load_labels is None:
+        unique_labels = sorted(set(flatten([lb.split()[1:] for lb in labels])))
+    else:
+        unique_labels = load_labels
+    
+    for label in unique_labels:
+        if not label.startswith('res__') or not ignore_res_seq_labels:
+            apply_label(labels, label, print_cmd=print_cmd, prefix=prefix)
+   
+apply_labels = import_labels_from_pdb
+cmd.extend("apply_labels", apply_labels)
+import_labels = import_labels_from_pdb
+cmd.extend("import_labels", import_labels)
+
+def apply_label(label_lines, label, print_cmd=False, prefix=''):
+    #must have spaces to avoid picking up similar labels
+    choosen = grep_lines(label_lines, " "+label+"( |$)")
+    res_num = [ch.split()[0] for ch in choosen]
+    #print(label)
+    #print(choosen)
+    res_num = "+".join(res_num)
+    cmd_str = f"select {prefix+label}, resi {res_num}"
+    if print_cmd:
+        print(cmd_str)
+    else:
+        cmd.do(cmd_str)
 
 def apply_read_selections(sel_str, print_cmd=False):
     """Applies read selection to pymol"""
@@ -208,6 +294,8 @@ def import_selections_from_pdb(pdb_path, print_cmd=False):
     for sel in seles:
         apply_read_selections(sel, print_cmd=print_cmd)
 
+import_selections = import_selections_from_pdb
+cmd.extend("import_selections", import_labels)
 
 def load_with_selections(pdb_path, print_cmd=False):
     """Loads a PDB and it's selections"""
@@ -220,17 +308,6 @@ def load_with_selections(pdb_path, print_cmd=False):
 
 load_ws = load_with_selections
 cmd.extend("load_ws", load_with_selections)
-
-import gzip
-def read_file(filename):
-    """Reads a file. Supports gzip files if ending is .gz"""
-    if filename.endswith('.gz'):
-        with gzip.open(filename, 'rt') as myfile:
-            data = myfile.read()
-    else:
-        with open(filename, 'rt') as myfile:
-            data = myfile.read()
-    return data  
 
 def apply_unsat_group(unsat_groups, object_name='all', print_cmd=False):
     """Parses an unsat group from BuriedUnsatHbonds (name: \n Unsatisfied HEAVY polar atom at residue 51: HIS  ND1 \n ... )"""
@@ -260,7 +337,7 @@ def apply_unsat_group(unsat_groups, object_name='all', print_cmd=False):
     else:
         cmd.do(cmd_str)
 
-import re
+
 find_unsat_sections = re.compile(r"^BuriedUnsatHbonds\s(.*?)\s\sall_heavy_atom_unsats", re.MULTILINE | re.DOTALL )
 
 def import_unsats_from_pdb(pdb_path, object_name=None, print_cmd=False):
@@ -277,6 +354,8 @@ def import_unsats_from_pdb(pdb_path, object_name=None, print_cmd=False):
 
 load_unsats = import_unsats_from_pdb
 cmd.extend("load_unsats", load_unsats)
+import_unsats = import_unsats_from_pdb
+cmd.extend("import_unsats", import_unsats)
 
 def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd=False):
     '''Imports an array of values from the npz file
@@ -314,6 +393,10 @@ def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd
             print(cmd_str)
 apply_erp = apply_metric_from_npz
 cmd.extend("apply_erp", apply_metric_from_npz)
+#import is the recommended naming
+cmd.extend("import_erp", apply_metric_from_npz)
+import_metric_from_npz = apply_metric_from_npz
+import_erp = apply_metric_from_npz
 
 def load_with_error_metrics(pdb_path, metric_type='lddt', selection=None, npz_path=None, print_cmd=False):
     """Loads a PDB and the error metrics"""
@@ -669,7 +752,7 @@ def pymol_display(cmd=pymol.cmd, ray=False):
 
 def get_rmsd(ob_file1, ob_file2, align=False, cmd=None, sub_sel='chain A and name CA', cleanup=True)->int:
     """
-    [summary]
+    gets rmsd without aligning
 
     Parameters
     ----------
@@ -711,9 +794,12 @@ def get_rmsd(ob_file1, ob_file2, align=False, cmd=None, sub_sel='chain A and nam
     #return None
     #cmd.remove('not chain A')
     if align:
-        rmsd =  cmd.rms(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=10, cycles=0)
+        rmsd =  cmd.rms(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=100, cycles=0)
     else:
-        rmsd =  cmd.rms_cur(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=10, cycles=0)
+        #cmd_str = f"rms_cur {ob1} and {sub_sel}, {ob2} and {sub_sel}, cutoff=100, cycles=10"
+        #cmd.do(cmd_str)
+        rmsd = cmd.rms_cur(f'{ob1} and {sub_sel}', f'{ob2} and {sub_sel}', cutoff=100, cycles=0)
+       
 
     if cleanup:
         cmd.delete(ob1)
@@ -721,3 +807,60 @@ def get_rmsd(ob_file1, ob_file2, align=False, cmd=None, sub_sel='chain A and nam
         
     return rmsd
 
+
+def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=True, cleanup=True, cmd=None):
+    """returns RMSD of hfuse. Returns a dict of values. The H-fuse must have the overlap label set"""
+    if cmd is None:
+        import pymol
+        cmd = pymol.cmd
+    import numpy as np
+    
+    hfuse = resolve_object_or_file_name(hfuse_pdb)
+    #overlap selection gets made
+    import_labels_from_pdb(hfuse_pdb, load_labels=['overlap']) 
+
+    block1 = resolve_object_or_file_name(block1)
+    block2 = resolve_object_or_file_name(block2)
+
+    #print(block1, block2)
+    
+    if align_block1:
+        cmd.align(block1, hfuse, gap=-20.0, extend=-0.2, max_gap=500)
+    if align_block2:
+        cmd.align(block2, hfuse, gap=-20.0, extend=-0.2, max_gap=500)
+    
+    #cmd.super(block1, hfuse)
+    #cmd.super(block2, hfuse)
+
+    alm1, dist1 = get_alignment_map('overlap', block1, max_distance=200)
+    distn1 = np.array(list(dist1.values()))
+    rmsd1 = np.sqrt(np.average(distn1**2))
+
+    alm2, dist2 = get_alignment_map('overlap', block2, max_distance=200)
+    distn2 = np.array(list(dist2.values()))
+    rmsd2 = np.sqrt(np.average(distn2**2))
+
+    #print(dist1, dist2)
+    #take the bigger rmsd.
+    if rmsd1>rmsd2:
+        rmsd=rmsd1
+        distn=distn1
+    else:
+        rmsd=rmsd2
+        distn=distn2
+
+    result = {
+        'overlap_rmsd' :rmsd,
+        'overlap_n_all':len(distn),
+        'overlap_n_gt_05':sum(distn>0.5),
+        'overlap_n_gt_10':sum(distn>1.0),
+        'overlap_n_gt_15':sum(distn>1.5),
+        'overlap_n_gt_20':sum(distn>2.0),
+    }
+
+    if cleanup:
+        cmd.delete(hfuse)
+        cmd.delete(block1)
+        cmd.delete(block2)
+        
+    return result

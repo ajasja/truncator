@@ -93,3 +93,22 @@ def add_labels_to_pdb(pdb, resids, label, out_name=None, error_on_out_of_bounds_
     
     pose_to_pdb_file(pose, out_name)
     return pose
+
+
+def add_seq_to_labels(pdb_file, out_name=None):
+    """
+    Saves the sequence information into pdb_labels. Labels are prefixed using res__.
+    For example if the first residue is an ALA, then a label res__ALA gets added.
+    """
+    if out_name is None:
+        out_name = pdb_file
+    pose = pyrosetta.pose_from_pdb(pdb_file)
+    
+    
+    for i in range(1, len(pose)+1):
+        res_name = pose.residues[i].name()
+        pose.pdb_info().add_reslabel(i, f'res__{res_name}')
+
+    print('Saving to: '+out_name)
+    pose.dump_pdb(out_name)
+    return pose
