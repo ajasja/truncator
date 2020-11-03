@@ -11,6 +11,16 @@ except:
 import os
 import re
 import itertools
+
+# taken from http://stackoverflow.com/a/11301781/952600
+try:
+    basestring  # attempt to evaluate basestring
+    def is_str(s):
+        return isinstance(s, basestring)
+except NameError:
+    def is_str(s):
+        return isinstance(s, str)
+
 flatten = itertools.chain.from_iterable
 import itertools
 import gzip
@@ -50,7 +60,6 @@ def get_selection_property(sel_str, property="resi"):
 
 
 get_sp = get_selection_property
-
 
 def get_helices(sele="all"):
     helices = list()
@@ -351,11 +360,83 @@ def import_unsats_from_pdb(pdb_path, object_name=None, print_cmd=False):
     for unsat_group in unsat_groups:
         apply_unsat_group(unsat_group, object_name=object_name, print_cmd=print_cmd)
 
-
 load_unsats = import_unsats_from_pdb
 cmd.extend("load_unsats", load_unsats)
 import_unsats = import_unsats_from_pdb
 cmd.extend("import_unsats", import_unsats)
+
+def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="all"):
+    """
+    Import the energy score table into pymol custom fields
+
+    Parameters
+    ----------
+    pdb_path : str
+        path to PDB
+    object_name : str, optional
+        the name of the object to load into, by default None
+    print_cmd : bool, optional
+        only print the command, by default False
+    fields : str, optional
+        [description], by default "all"
+    """
+    file_str = read_file(pdb_path)
+    if object_name is None:
+        object_name = get_pymol_name(pdb_path)
+
+    #exrtract the energies table
+    file_str=read_file(pdb_path)
+    #Take everything between the tags. Must skip first line
+    file_str=file_str.split('#BEGIN_POSE_ENERGIES_TABLE')[-1].split('#END_POSE_ENERGIES_TABLE')[0]
+    #remove first line (#Begin...)
+    file_str=file_str.split('\n', maxsplit=1)[-1]
+
+    import csv, io
+    reader = csv.DictReader(io.StringIO(file_str),  delimiter=' ', quotechar='"')
+
+    if fields=="all" or fields is None:
+        fields = reader.fieldnames
+    else:
+        #enable a string seperated with spaces
+        if is_str(fields):
+            fields=fields.split(' ')
+        #check that the reqired fields are present
+        fields_set = set(fields)
+        reader_set = set(reader.fieldnames)
+        assert fields_set.issubset(reader_set), f"Fields {fields_set.difference(reader_set)} are not in the PDB energy table. \
+            \n fields    :{fields} \
+            \n cvs_header:{reader.fieldnames}"
+
+    for row in reader:
+        label=row['label'] #label should be in the form GLU_18
+        if label in ['weights', 'pose']: continue
+        resi = label.split("_")[-1]
+        fields_str = ""
+        for field in fields:
+            fields_str = fields_str + f"p.{field}={row[field]};"
+            
+        if print_cmd:
+            print(f'alter {object_name} and resi {resi}, {fields_str}')
+        else:
+            cmd.alter(f'{object_name} and resi {resi}', fields_str)
+
+load_scores = import_scores_from_pdb
+cmd.extend("load_scores", load_scores)
+import_scores = import_scores_from_pdb
+cmd.extend("import_scores", import_scores)
+
+def color_by_score(field, range="-5 0 5", colors="green white red", selection="visible"):
+    if is_str(range):
+        range=range.split(' ')
+    if is_str(colors):
+       colors=colors.split(' ') 
+    cmd.do(f'pseudoatom pOrig, pos=(0,0,0)')
+    cmd.do(f'ramp_new proximityRamp, pOrig, selection=none, range={range}, color={colors}')
+    cmd.do(f'spectrum p.{field}, {" ".join(colors)}, minimum={range[0]}, maximum={range[-1]}')
+
+cmd.extend("color_by_score", color_by_score)
+cmd.extend("cbs", color_by_score)
+
 
 def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd=False):
     '''Imports an array of values from the npz file

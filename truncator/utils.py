@@ -14,10 +14,6 @@ except NameError:
     def is_str(s):
         return isinstance(s, str)
 
-
-
-
-
 def notebook_setup(init_flags=str):
     import pyrosetta
     flags = " ".join(init_flags.split())
