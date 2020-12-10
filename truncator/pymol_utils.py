@@ -1033,6 +1033,10 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
         If c_term, these are counted form the end.
         One based counting.
     """
+
+    obj1 = resolve_object_or_file_name(obj2)
+    obj2 = resolve_object_or_file_name(obj2)
+
     res = {}
     obj1_sel = f'{obj1} and chain {obj1_chain}'
     obj2_sel = f'{obj2} and chain {obj2_chain}'
