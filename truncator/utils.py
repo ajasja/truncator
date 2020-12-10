@@ -565,20 +565,37 @@ def keep_indices1(indices1, string : str, rep_char='-') ->str:
 #assert keep_indices([1,3], 'ABCDE') == 'A-C--'
 
 def lock_seq_mismatches(lock_seq: str, seq: str):
-    """Compares a lock_seq with seq, ignoring '-' chars. Returns the indices1 of mismatches"""
-    return ""
+    """Compares a lock_seq with seq, ignoring '-' chars. Returns the indices0 of mismatches"""
+    raise NotImplementedError
 
-def lock_seq_mismatches1(lock_seq: str, seq: str):
+def lock_seq_mismatches1(lock_seq: str, seq: str, retun_dict=False):
     """Compares a lock_seq with seq, ignoring '-' chars. Returns the indices1 of mismatches"""
     mismatches = []  
     for n in range(len(lock_seq)):
         if lock_seq[n] == '-':
             continue
         if lock_seq[n]!=seq[n]:
-            mismatches.append(n+1)
+            if not retun_dict:
+                mismatches.append(n+1)
+            else:
+                m = dict()
+                m[lock_seq[n]] = seq[n]
+                mismatches.append((n+1, m))
     
     return mismatches
 #assert lock_seq_mismatches1('A-C--', 'ABCDE') == []
 #assert lock_seq_mismatches1('A-D--', 'ABCDE') == [3]
 #assert lock_seq_mismatches1('A-D--', 'ABCDEFGH') == [3]
 #assert lock_seq_mismatches1('A-D---------', 'ABCDEFGH') == [3]
+
+
+
+
+def df_apply_parallel(dfGrouped, func, n_jobs=None):
+    from multiprocessing import Pool, cpu_count
+    import pandas
+    if n_jobs is None:
+        n_jobs = cpu_count()
+    with Pool(n_jobs) as p:
+        ret_list = p.map(func, [group for name, group in dfGrouped])
+    return pandas.concat(ret_list)

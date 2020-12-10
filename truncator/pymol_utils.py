@@ -107,10 +107,41 @@ def sel_terminal_helix(n, sele="all", onlyh=True, sele_name="sele"):
         return sel_last_helix(-int(n), sele=sele, onlyh=onlyh, sele_name=sele_name)
 
 
+
+def sel_helix_from_to(from_n_1, to_n_1, sele="all", onlyh=True, sele_name=None):
+    """Selects from_n to to_n helix, one based. Includes both from and to helices.
+    Negative indices start counting from the end."""
+    helices = get_helices(sele)
+    if from_n_1>to_n_1:
+        from_n_1,to_n_1=to_n_1,from_n_1
+
+    if from_n_1>0:
+        from_n=from_n_1-1
+    else:
+        from_n=from_n_1
+
+    if to_n_1>0:
+        to_n=to_n_1-1
+    else:
+        to_n=to_n_1
+   
+    
+    if int(onlyh):
+        hresi = itertools.chain(*helices[from_n:to_n+1])
+        sele_new = "resi " + "+".join(r for r in hresi)
+    else:
+        #from the first residue of the first helix, to the last residue of the last helix
+        sele_new = f"resi {helices[from_n][0]}-{helices[to_n][-1]}"  
+
+    sele_new = sele + " AND (" + sele_new + ")"
+    if sele_name is not None: 
+        cmd.select(sele_name, selection=sele_new)
+    return sele_new
+
 cmd.extend("sel_first_helix", sel_first_helix)
 cmd.extend("sel_last_helix", sel_last_helix)
 cmd.extend("sel_terminal_helix", sel_terminal_helix)
-
+cmd.extend("sel_helix_from_to", sel_helix_from_to)
 
 def clash_check_CA(selA, selB, distance=4.0, sele_name=None):
     """Returns the number of CA atoms in selA that lie closer than radii to any CA atom in selB"""
@@ -365,7 +396,7 @@ cmd.extend("load_unsats", load_unsats)
 import_unsats = import_unsats_from_pdb
 cmd.extend("import_unsats", import_unsats)
 
-def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="all"):
+def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="total fa_rep fa_atr fa_sol fa_elec fa_dun_rot"):
     """
     Import the energy score table into pymol custom fields
 
@@ -437,31 +468,51 @@ def color_by_score(field, range="-5 0 5", colors="green white red", selection="v
 cmd.extend("color_by_score", color_by_score)
 cmd.extend("cbs", color_by_score)
 
+def read_json(filename):
+    import json
+    with opengz(filename, 'rt') as _file:
+        return json.load(_file)
 
+def load_error_prediction_data(npz_or_json_file):
+    '''
+        Metric types are:
+    lddt, pe40, pe20, pe10, pe05
+    '''
+    import numpy as np
+    import json
+    if npz_or_json_file.endswith('.json') or npz_or_json_file.endswith('.json.gz') or \
+       npz_or_json_file.endswith('.errpred') or npz_or_json_file.endswith('.errpred.gz'):
+        data = read_json(npz_or_json_file) 
+        
+        #convert to np arrays
+        for key in data.keys():
+            data[key] = np.array(data[key])
+        return data 
+    
+   
+    dat = np.load(npz_or_json_file)
+    
+    lddt = dat["lddt"] 
+    esto = dat["estogram"]
+    res = {
+        'lddt': lddt,
+        'pe40': 1-np.mean(np.sum(esto[:,:,:4], axis=-1) + np.sum(esto[:,:,11:], axis=-1), axis=-1),
+        'pe20': 1-np.mean(np.sum(esto[:,:,:5], axis=-1) + np.sum(esto[:,:,10:], axis=-1), axis=-1),
+        'pe10': 1-np.mean(np.sum(esto[:,:,:6], axis=-1) + np.sum(esto[:,:,9:], axis=-1), axis=-1),
+        'pe05': 1-np.mean(np.sum(esto[:,:,:7], axis=-1) + np.sum(esto[:,:,8:], axis=-1), axis=-1),
+    }
+
+    return res
+    
 def apply_metric_from_npz(npz_file, metric_type='lddt', sel_str='all', print_cmd=False):
     '''Imports an array of values from the npz file
     Metric types are:
     lddt, pe40, pe20, pe10, pe05
     '''
     import numpy as np
-    dat = np.load(npz_file)
-    
-    lddt = dat["lddt"] 
-    esto = dat["estogram"]
+    dat = load_error_prediction_data(npz_file)
+    res = dat[metric_type]
 
-    if  metric_type=='lddt':
-        res = lddt
-    elif metric_type=='pe40':
-        res = 1-np.mean(np.sum(esto[:,:,:4], axis=-1) + np.sum(esto[:,:,11:], axis=-1), axis=-1)
-    elif metric_type=='pe20':
-        res = 1-np.mean(np.sum(esto[:,:,:5], axis=-1) + np.sum(esto[:,:,10:], axis=-1), axis=-1)
-    elif metric_type=='pe10':
-        res = 1-np.mean(np.sum(esto[:,:,:6], axis=-1) + np.sum(esto[:,:,9:], axis=-1), axis=-1)
-    elif metric_type=='pe05':
-        res = 1-np.mean(np.sum(esto[:,:,:7], axis=-1) + np.sum(esto[:,:,8:], axis=-1), axis=-1)
-    else:
-        raise f"Metric should be one of lddt, pe40, pe20, pe10, pe05, but is {metric_type}"
-    
     model = cmd.get_model(f"{sel_str} and name CA")
     
     assert (len(res)==model.nAtom)
@@ -889,7 +940,7 @@ def get_rmsd(ob_file1, ob_file2, align=False, cmd=None, sub_sel='chain A and nam
     return rmsd
 
 
-def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=True, cleanup=True, cmd=None):
+def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=True, cleanup=True, cmd=None, hfuse_extra_sel=''):
     """returns RMSD of hfuse. Returns a dict of values. The H-fuse must have the overlap label set"""
     if cmd is None:
         import pymol
@@ -906,9 +957,9 @@ def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=Tr
     #print(block1, block2)
     
     if align_block1:
-        cmd.align(block1, hfuse, gap=-20.0, extend=-0.2, max_gap=500)
+        cmd.align(block1, hfuse+' '+hfuse_extra_sel, gap=-20.0, extend=-0.2, max_gap=500)
     if align_block2:
-        cmd.align(block2, hfuse, gap=-20.0, extend=-0.2, max_gap=500)
+        cmd.align(block2, hfuse+' '+hfuse_extra_sel, gap=-20.0, extend=-0.2, max_gap=500)
     
     #cmd.super(block1, hfuse)
     #cmd.super(block2, hfuse)
@@ -945,3 +996,118 @@ def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=Tr
         cmd.delete(block2)
         
     return result
+
+def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A', 
+                            obj1_overlap_hel=(1,2), obj2_overlap_hel=(1,2)):
+    """
+    Used to fuse to structures with a helical overlap. Especially useful for designed helical repeat proteins (DHRs).
+    Obj1 is modified in place.
+    Obj2 is modifed and deleted.
+
+    Returns:
+    --------
+    Modified Obj1 and a dictionary with overlap metrics.
+       'overlap_rmsd': 0.2, #overlap of the selections, 
+       'aligned_atom_num': 274, 
+       'aligned_res_num': 55, 
+       'NC_length_A': 1.6 # Length of the new NC bond in Angstrem
+
+    Parameters
+    ----------
+    obj1 : str or file name
+        Existing object name or file to load.
+        This is the target that will be fused on.
+    obj2 : str or file name
+        This gets deleted.
+    fusion_term : str
+        Which terminal of Obj1 to fuse to (n_term, c_term)
+    obj1_chain : str, optional
+        Chain to fuse on, by default 'A'
+    obj2_chain : str, optional
+        Chain that is fused, by default 'B'
+    obj1_overlap_hel : tuple, optional (1,2).
+        Which helices to use as overlap.
+        If c_term, these are counted form the end.
+        One based counting.
+    obj2_overlap_hel : tuple, optional
+        If c_term, these are counted form the end.
+        One based counting.
+    """
+    res = {}
+    obj1_sel = f'{obj1} and chain {obj1_chain}'
+    obj2_sel = f'{obj2} and chain {obj2_chain}'
+
+
+    if fusion_term=='c_term':
+        obj1_overlap_hel=-obj1_overlap_hel[0],-obj1_overlap_hel[1]
+    else:
+        obj2_overlap_hel=-obj2_overlap_hel[0],-obj2_overlap_hel[1]
+
+    obj1_overlap = f'{sel_helix_from_to(obj1_overlap_hel[0], obj1_overlap_hel[1], obj1_sel, onlyh=False)} AND backbone '
+    obj2_overlap = f'{sel_helix_from_to(obj2_overlap_hel[0], obj2_overlap_hel[1], obj2_sel, onlyh=False)} AND backbone'
+    #print(obj1_overlap)
+    #print(obj2_overlap)
+    cmd.color('red', obj1_overlap)
+    cmd.color('red', obj2_overlap)
+    aln_res = cmd.align(obj2_overlap, obj1_overlap, cycles=0)
+
+    res['overlap_rmsd'] = aln_res[0]
+    res['aligned_atom_num'] = aln_res[1]
+    res['aligned_res_num'] = aln_res[-1]
+    print(f'ALN_RES: {aln_res}')
+
+    ### remove duplicate chains
+    cmd.alter('obj2', 'segi="fused"')
+
+    obj1_chains = cmd.get_chains(obj1)
+    obj2_chains = cmd.get_chains(obj2)
+
+    #print(obj1_chains, obj2_chains)
+    # remove duplicate chains (except the one that is being fused, that will get changed anyway)
+    # the chains get a lower case for now
+    # TODO make the chain switching algo more robust 
+    for an_obj2_chain in obj2_chains:
+        if (an_obj2_chain in obj1_chains) and (an_obj2_chain != obj2_chain):
+            new_chain_id = an_obj2_chain.lower()
+            #new_chain_id = 'Z'
+            print(f"Changing {an_obj2_chain} to {new_chain_id}")
+            print(f'{obj2} and chain {an_obj2_chain}', f'chain="{new_chain_id}"')
+            cmd.alter(f'{obj2} and chain {an_obj2_chain}', f'chain="{new_chain_id}"')
+
+    #delete redundant residues
+    #TODO Get the smallest distance between atoms and do the crossover there.
+    if fusion_term=='c_term':
+        obj1_overlap_mdl = cmd.get_model(f'({obj1_overlap}) AND name C')
+        last_obj1 = list(obj1_overlap_mdl.atom)[-1]
+        cmd.remove(f"{obj1} and chain {last_obj1.chain} and segi '{last_obj1.segi}' and resi {last_obj1.resi_number+1}-" )
+
+        obj2_overlap_mdl = cmd.get_model(f'({obj2_overlap}) AND name N')
+        last_obj2 = list(obj2_overlap_mdl.atom)[-1]
+        cmd.remove(f"{obj2} and chain {last_obj2.chain} and segi '{last_obj2.segi}' and resi 1-{last_obj2.resi_number}" )
+
+        #change the fusion numbering
+        cmd.alter(f'{obj2} and chain {last_obj2.chain}',  f'resi=int(resi)-{last_obj2.resi_number}+{last_obj1.resi_number}')
+        
+        #change the fusion chain abd segi
+        cmd.alter(f'{obj2} and chain {last_obj2.chain}',  f'segi="{last_obj1.segi}"')
+        cmd.alter(f'{obj2} and chain {last_obj2.chain}',  f'chain="{last_obj1.chain}"')
+
+
+        C_atom = f"{obj1} and chain {last_obj1.chain} and segi '{last_obj1.segi}' and resi {last_obj1.resi_number} and name C"
+                                    #not a mistake             #not a mistake                   #not a mistake    
+        N_atom = f"{obj2} and chain {last_obj1.chain} and segi '{last_obj1.segi}' and resi {last_obj1.resi_number+1} and name N"
+        print("N_ATOM: ", N_atom)
+        print("C_ATOM: ", C_atom)
+        cmd.show('spheres', N_atom)
+        cmd.show('spheres', C_atom)
+        
+        
+        res['NC_length_A'] = cmd.get_distance(N_atom, C_atom)
+        cmd.fuse(N_atom, C_atom, move=0, mode=0)
+        #cmd.bond(N_atom, C_atom)
+
+    else:
+        raise "n_term fusion not yet implemented. So sorry." 
+
+    cmd.delete('obj2')
+    return res
