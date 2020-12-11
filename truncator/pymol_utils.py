@@ -998,7 +998,7 @@ def get_hfuse_rmsd(hfuse_pdb, block1, block2, align_block1=True, align_block2=Tr
     return result
 
 def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A', 
-                            obj1_overlap_hel=(1,2), obj2_overlap_hel=(1,2)):
+                            obj1_overlap_hel=(1,2), obj2_overlap_hel=(1,2), cmd=None, verbose=False):
     """
     Used to fuse to structures with a helical overlap. Especially useful for designed helical repeat proteins (DHRs).
     Obj1 is modified in place.
@@ -1033,14 +1033,17 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
         If c_term, these are counted form the end.
         One based counting.
     """
+    if cmd is None:
+        import pymol
+        cmd = pymol.cmd
 
-    obj1 = resolve_object_or_file_name(obj2)
+    obj1 = resolve_object_or_file_name(obj1)
     obj2 = resolve_object_or_file_name(obj2)
 
     res = {}
+
     obj1_sel = f'{obj1} and chain {obj1_chain}'
     obj2_sel = f'{obj2} and chain {obj2_chain}'
-
 
     if fusion_term=='c_term':
         obj1_overlap_hel=-obj1_overlap_hel[0],-obj1_overlap_hel[1]
@@ -1051,14 +1054,19 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
     obj2_overlap = f'{sel_helix_from_to(obj2_overlap_hel[0], obj2_overlap_hel[1], obj2_sel, onlyh=False)} AND backbone'
     #print(obj1_overlap)
     #print(obj2_overlap)
-    cmd.color('red', obj1_overlap)
+    cmd.color('tv_red', obj1_overlap)
     cmd.color('red', obj2_overlap)
+    if verbose:
+        print('obj1_overlap:', obj1_overlap)
+        print('obj2_overlap:', obj2_overlap)
+    
     aln_res = cmd.align(obj2_overlap, obj1_overlap, cycles=0)
 
     res['overlap_rmsd'] = aln_res[0]
     res['aligned_atom_num'] = aln_res[1]
     res['aligned_res_num'] = aln_res[-1]
-    print(f'ALN_RES: {aln_res}')
+    if verbose:
+        print(f'ALN_RES: {aln_res}')
 
     ### remove duplicate chains
     cmd.alter('obj2', 'segi="fused"')
@@ -1073,9 +1081,9 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
     for an_obj2_chain in obj2_chains:
         if (an_obj2_chain in obj1_chains) and (an_obj2_chain != obj2_chain):
             new_chain_id = an_obj2_chain.lower()
-            #new_chain_id = 'Z'
-            print(f"Changing {an_obj2_chain} to {new_chain_id}")
-            print(f'{obj2} and chain {an_obj2_chain}', f'chain="{new_chain_id}"')
+            if verbose:
+                print(f"Changing {an_obj2_chain} to {new_chain_id}")
+                print(f'{obj2} and chain {an_obj2_chain}', f'chain="{new_chain_id}"')
             cmd.alter(f'{obj2} and chain {an_obj2_chain}', f'chain="{new_chain_id}"')
 
     #delete redundant residues
@@ -1096,15 +1104,14 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
         cmd.alter(f'{obj2} and chain {last_obj2.chain}',  f'segi="{last_obj1.segi}"')
         cmd.alter(f'{obj2} and chain {last_obj2.chain}',  f'chain="{last_obj1.chain}"')
 
-
         C_atom = f"{obj1} and chain {last_obj1.chain} and segi '{last_obj1.segi}' and resi {last_obj1.resi_number} and name C"
                                     #not a mistake             #not a mistake                   #not a mistake    
         N_atom = f"{obj2} and chain {last_obj1.chain} and segi '{last_obj1.segi}' and resi {last_obj1.resi_number+1} and name N"
-        print("N_ATOM: ", N_atom)
-        print("C_ATOM: ", C_atom)
+        if verbose:
+            print("N_ATOM: ", N_atom)
+            print("C_ATOM: ", C_atom)
         cmd.show('spheres', N_atom)
         cmd.show('spheres', C_atom)
-        
         
         res['NC_length_A'] = cmd.get_distance(N_atom, C_atom)
         cmd.fuse(N_atom, C_atom, move=0, mode=0)
@@ -1114,4 +1121,6 @@ def fuse_on_helix_overlap(obj1, obj2, fusion_term, obj1_chain='A', obj2_chain='A
         raise "n_term fusion not yet implemented. So sorry." 
 
     cmd.delete('obj2')
+    res['obj1'] = obj1
+    res['obj2'] = obj2
     return res
