@@ -11,6 +11,7 @@ except:
 import os
 import re
 import itertools
+from sys import prefix
 
 # taken from http://stackoverflow.com/a/11301781/952600
 try:
@@ -112,20 +113,23 @@ def sel_helix_from_to(from_n_1, to_n_1, sele="all", onlyh=True, sele_name=None):
     """Selects from_n to to_n helix, one based. Includes both from and to helices.
     Negative indices start counting from the end."""
     helices = get_helices(sele)
-    if from_n_1>to_n_1:
-        from_n_1,to_n_1=to_n_1,from_n_1
+    N_hel = len(helices)
+   
 
     if from_n_1>0:
         from_n=from_n_1-1
     else:
-        from_n=from_n_1
+        from_n=N_hel+from_n_1
 
     if to_n_1>0:
         to_n=to_n_1-1
     else:
-        to_n=to_n_1
+        to_n=N_hel+to_n_1
    
+    if from_n>to_n:
+        from_n,to_n=to_n,from_n
     
+    #print(from_n,to_n)
     if int(onlyh):
         hresi = itertools.chain(*helices[from_n:to_n+1])
         sele_new = "resi " + "+".join(r for r in hresi)
@@ -286,7 +290,9 @@ load_wl = load_with_labels
 cmd.extend("load_wl", load_wl)
 
 
-def import_labels_from_pdb(pdb_path, print_cmd=False, ignore_res_seq_labels=True, load_labels=None, prefix=''):
+def import_labels_from_pdb(pdb_path, print_cmd=False, ignore_res_seq_labels=True, load_labels=None, prefix='', object_name=None):
+    if object_name is None:
+        object_name = get_pymol_name(pdb_path)
     labels = grep_file(pdb_path, r"^REMARK PDBinfo-LABEL: ")
     #clean up first part
     labels = [lb.replace('REMARK PDBinfo-LABEL:','').strip() for lb in labels]
@@ -298,21 +304,25 @@ def import_labels_from_pdb(pdb_path, print_cmd=False, ignore_res_seq_labels=True
     
     for label in unique_labels:
         if not label.startswith('res__') or not ignore_res_seq_labels:
-            apply_label(labels, label, print_cmd=print_cmd, prefix=prefix)
+            apply_label(labels, label, print_cmd=print_cmd, prefix=prefix, object_name=object_name)
    
 apply_labels = import_labels_from_pdb
 cmd.extend("apply_labels", apply_labels)
 import_labels = import_labels_from_pdb
 cmd.extend("import_labels", import_labels)
 
-def apply_label(label_lines, label, print_cmd=False, prefix=''):
+def apply_label(label_lines, label, print_cmd=False, prefix='', object_name=None):
     #must have spaces to avoid picking up similar labels
     choosen = grep_lines(label_lines, " "+label+"( |$)")
     res_num = [ch.split()[0] for ch in choosen]
     #print(label)
     #print(choosen)
     res_num = "+".join(res_num)
-    cmd_str = f"select {prefix+label}, resi {res_num}"
+    if object_name is None:
+        object_str = {}
+    else:
+        object_str = f"and {object_name}"
+    cmd_str = f"select {prefix+label}, resi {res_num} {object_str}"
     if print_cmd:
         print(cmd_str)
     else:
@@ -321,8 +331,10 @@ def apply_label(label_lines, label, print_cmd=False, prefix=''):
 def apply_read_selections(sel_str, print_cmd=False):
     """Applies read selection to pymol"""
     name, cmd_str = sel_str.split(' ', maxsplit=1)
-    name = name.replace('_pymol_selection', "")
-    cmd_str = cmd_str.replace('rosetta_sele', name)
+    #The selections are named in newer versions of Rosetta
+    #name = name.replace('_pymol_selection', "")
+    #cmd_str = cmd_str.replace('rosetta_sele', name)
+    print(name)
     if print_cmd:
         print(cmd_str)
     else:
@@ -396,7 +408,8 @@ cmd.extend("load_unsats", load_unsats)
 import_unsats = import_unsats_from_pdb
 cmd.extend("import_unsats", import_unsats)
 
-def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="total fa_rep fa_atr fa_sol fa_elec fa_dun_rot"):
+def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, 
+        fields="total fa_rep fa_atr fa_sol fa_elec fa_dun_rot"):
     """
     Import the energy score table into pymol custom fields
 
@@ -409,7 +422,7 @@ def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="
     print_cmd : bool, optional
         only print the command, by default False
     fields : str, optional
-        [description], by default "all"
+        [description], by default "total fa_rep fa_atr fa_sol fa_elec fa_dun_rot"
     """
     file_str = read_file(pdb_path)
     if object_name is None:
@@ -438,18 +451,30 @@ def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, fields="
             \n fields    :{fields} \
             \n cvs_header:{reader.fieldnames}"
 
+    fields_str = ""
+    for field in fields:
+        fields_str = fields_str + f"p.{field}=0;"
+    if print_cmd:
+        print(f'alter {object_name}, {fields_str}')
+    else:
+        cmd.alter(f'{object_name}', fields_str)
+
     for row in reader:
         label=row['label'] #label should be in the form GLU_18
         if label in ['weights', 'pose']: continue
         resi = label.split("_")[-1]
         fields_str = ""
+        #in symetric structures a lot of rows will just be zero. Skip loading those
+        all_zero = True
         for field in fields:
             fields_str = fields_str + f"p.{field}={row[field]};"
-            
-        if print_cmd:
-            print(f'alter {object_name} and resi {resi}, {fields_str}')
-        else:
-            cmd.alter(f'{object_name} and resi {resi}', fields_str)
+            all_zero = all_zero and (abs(float(row[field]))<1e-6)
+
+        if not all_zero:
+            if print_cmd:
+                print(f'alter {object_name} and resi {resi}, {fields_str}')
+            else:
+                cmd.alter(f'{object_name} and resi {resi}', fields_str)
 
 load_scores = import_scores_from_pdb
 cmd.extend("load_scores", load_scores)
@@ -558,6 +583,41 @@ print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08
 """
 
 
+def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, color_by="score", object=None):
+    """
+    Loads a rosetta specific pdb with all the additional info.
+
+    Parameters
+    ----------
+    pdb : str
+        pdb file 
+    scores : bool, optional
+        load scores, by default True
+    labels : bool, optional
+        load labesl as selections, by default True
+    unsats : bool, optional
+        load unsats as dots, by default True
+    """
+    if object is None:
+        object = get_pymol_name(pdb)
+
+    cmd.load(pdb, object=object)
+    if labels:
+        import_labels(pdb, object_name=object)
+    if unsats:
+        import_unsats(pdb, object_name=object)
+        cmd.show('dots', f'*unsats_{object}*')
+        #cmd.show('dots', f'*unsats_{object}*')
+    if scores:
+        import_scores(pdb, object_name=object)
+
+    if color_by=="score":
+        color_by_score("total")
+    
+
+cmd.extend("load_rosetta_pdb", load_rosetta_pdb)
+lrp = load_rosetta_pdb
+cmd.extend("lrp", lrp)
 
 
 #taken from http://www.protein.osaka-u.ac.jp/rcsfp/supracryst/suzuki/jpxtal/Katsutani/InterfaceResidues.py
@@ -705,7 +765,7 @@ def get_chainbreaks(objname_or_file, cutoff_A=2, cmd=None, delete_all_before_loa
 
 aa_3to1 = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
 
-def get_seq_alignment_map(from_sele, to_sele, aln_name=None, cmd=pymol.cmd):
+def get_seq_alignment_map(from_sele, to_sele, aln_name=None, cmd=pymol.cmd, cycles_align=5, cutoff_align_RMSD=2.5):
     """Gets the sequnce mapping from calling align. Returns a tuple of CA atoms"""
     model1_name = cmd.get_object_list(from_sele)
     assert len(model1_name)==1
@@ -717,7 +777,7 @@ def get_seq_alignment_map(from_sele, to_sele, aln_name=None, cmd=pymol.cmd):
     if aln_name is None:
         aln_name = f"aln__{model1_name}__{model2_name}"
     
-    cmd.align(f'({to_sele}) and name CA', f'({from_sele}) and name CA', cutoff=2.5, cycles=5, object=aln_name)
+    cmd.align(f'({to_sele}) and name CA', f'({from_sele}) and name CA', cutoff=cutoff_align_RMSD, cycles=cycles_align, object=aln_name)
 
     #cmd.super(f'({to_sele}) and name CA', f'({from_sele}) and name CA', object=aln_name)
     raw_aln  = cmd.get_raw_alignment(aln_name)
@@ -746,7 +806,7 @@ def print_seq_alignement_map(smap):
     
     print(f'{model1} -> {model2}')
     for at1, at2 in smap:
-        print(f'{at1.chain} {at2.resi_number:3d} ({aa_3to1[at1.resn]}) -> {at2.chain} {at2.resi_number:3d} ({aa_3to1[at2.resn]})')
+        print(f'{at1.chain} {at1.resi_number:3d} ({aa_3to1[at1.resn]}) -> {at2.chain} {at2.resi_number:3d} ({aa_3to1[at2.resn]})')
 
 def get_seq_aln_map_differences(smap):
     """Returns only the tuples that have a diffrent resisue name (resn) """
@@ -755,26 +815,28 @@ def get_seq_aln_map_differences(smap):
         if at1.resn != at2.resn:
             res.append((at1, at2))
     return res
-        
 
 
 def get_selections_from_seq_aln_map(smap):
     """Returns the from and to selections strings (based on atom index and name)"""
-    sel1_idx = []
-    sel2_idx = []
-    for at1, at2 in smap:
-        sel1_idx.append(str(at1.index))
-        sel2_idx.append(str(at2.index))
-    sel1_idx_str = '+'.join(sel1_idx)
-    sel2_idx_str = '+'.join(sel2_idx)
-    
+
     #each selection can only be from one model, so only look at first atom
     #TODO rewrite using get_object_list
     model1 = smap[0][0].parent_model 
     model2 = smap[0][1].parent_model
-    #TODO: index is not really the best selection since it changes on sort and mutations 
-    sel1 = f'byresi(index {sel1_idx_str} and {model1})' 
-    sel2 = f'byresi(index {sel2_idx_str} and {model2})' 
+
+    sel1_idx = []
+    sel2_idx = []
+    for at1, at2 in smap:
+        sel1_idx.append(f'({model1} and chain {at1.chain} and resi {at1.resi})')
+        sel2_idx.append(f'({model2} and chain {at2.chain} and resi {at2.resi})')
+    sel1_idx_str = ' or '.join(sel1_idx)
+    sel2_idx_str = ' or '.join(sel2_idx)
+    
+
+    #TODO: REWRITE SO IT'S GROUPED BY CHAIN
+    sel1 = f'byresi( {sel1_idx_str} )' 
+    sel2 = f'byresi( {sel2_idx_str} )' 
     
     return sel1, sel2
     
