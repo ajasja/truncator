@@ -75,11 +75,11 @@ def opengz(filename, mode):
     else:
         return open(filename, mode)
 
-def write_json(filename, data):
+def write_json(filename, data, indent=None, separators=None):
     import gzip
     import json
     with opengz(filename, 'wt') as outfile:
-        json.dump(data, outfile,  indent=4)
+        json.dump(data, outfile, indent=indent, separators=separators)
 
 def read_json(filename):
     import json
@@ -264,14 +264,20 @@ def read_score_file(file_name, pdb_dir=None, verbose=False, load_seq=True, skipr
     if load_seq:
         df['seq'] = seqs
     else:
-        df['seq'] = " "
+        if not 'seq' in df.columns:
+            df['seq'] = " "
     return df
 
 def read_score_files(file_names, pdb_dir=None, verbose=False, load_seq=True, skiprows=1, cache_file=None):
     dfs = []
     
     for file_name in file_names:
-        dfs.append(read_score_file(file_name, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows))
+        try:
+            df=read_score_file(file_name, pdb_dir=pdb_dir, verbose=verbose, load_seq=load_seq, skiprows=skiprows)
+            dfs.append(df)
+        except Exception as E:
+            print(f'WARNING: COULD NOT LOAD {file_name}!')
+            print(str(E))
     dfs = pd.concat(dfs, sort=False)
     
     return dfs
@@ -599,3 +605,64 @@ def df_apply_parallel(dfGrouped, func, n_jobs=None):
     with Pool(n_jobs) as p:
         ret_list = p.map(func, [group for name, group in dfGrouped])
     return pandas.concat(ret_list)
+
+
+def is_same_circular_seq(seq1, seq2) -> bool:
+    """Compares two circular vectors and returns true if ther are the same"""
+    seq1 = str(seq1).upper()
+    seq2 = str(seq2).upper()
+    if len(seq1) != len(seq2):
+        return False
+    
+    cseq=seq1+seq1
+    #print(cseq)
+    #print(seq2)
+    return seq2 in cseq
+
+#is_same_circular_seq('AAATTT', 'AAtTTA')    
+
+#edit the fasta squence
+def insert_into_fasta(fasta_file, insert_pos, insert_seq):
+    """Uses one based counting. Sequence inserted after insert_pos. Insert pos 1 would do 1AAA2345.
+    Skip insertion if sequence allready present"""
+    insert_pos = int(insert_pos)
+    fasta = Bio.SeqIO.read(fasta_file,'fasta')
+    
+    old_seq = fasta.seq
+    #if insert_seq in old_seq:
+    #    return False
+    
+    new_seq = old_seq[:insert_pos]+insert_seq+old_seq[insert_pos:]
+    fasta.seq = new_seq
+    fasta.name = fasta.name.split('.')[0]
+    fasta.id = fasta.id.split('.')[0]
+    Bio.SeqIO.write(fasta, fasta_file, 'fasta')
+    return True
+
+#fasta_file='05_fasta_DNA/ALF301.cbr73.DNA.fasta'
+#insert_pos=73*3
+#insert_seq='TAAGAAGGAGATATCATCATG'
+#insert_into_fasta(fasta_file, insert_pos, insert_seq)
+
+def replace_into_fasta(fasta_file, insert_pos, insert_seq, debug=False):
+    """Uses one based counting. Sequence inserted after insert_pos. Insert pos 1 of AAA in 12345 would do AAA45."""
+    insert_pos = int(insert_pos)
+    fasta = Bio.SeqIO.read(fasta_file,'fasta')
+    
+    old_seq = fasta.seq
+    #if insert_seq in old_seq:
+    #    return False
+    
+    if insert_pos<0:
+        insert_pos=len(old_seq)+insert_pos+1
+    new_seq = old_seq[:insert_pos-1]+insert_seq+old_seq[insert_pos+len(insert_seq)-1:]
+    fasta.seq = new_seq
+    fasta.name = fasta.name.split('.')[0]
+    fasta.id = fasta.id.split('.')[0]
+    if debug:
+        print(fasta.seq)
+    else:
+        Bio.SeqIO.write(fasta, fasta_file, 'fasta')
+    return fasta
+    
+#replace_into_fasta('test.fasta', -5, 'AAA', debug=True)
