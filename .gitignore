@@ -137,3 +137,6 @@ nosetests.xml
 
 #Ipython checkpoints
 .ipynb_checkpoints
+#vscode
+truncator/.vscode
+.vscode
