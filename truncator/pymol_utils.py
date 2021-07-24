@@ -46,6 +46,13 @@ def resolve_object_or_file_name(file_or_name):
         name = file_or_name
     return name
 
+
+def read_json(filename):
+    import json
+    with opengz(filename, 'rt') as _file:
+        return json.load(_file)
+
+
 def get_ss(sel_str):
     """returns the secondary structure of selection as a string"""
     stored.ss_array = []
@@ -408,6 +415,48 @@ cmd.extend("load_unsats", load_unsats)
 import_unsats = import_unsats_from_pdb
 cmd.extend("import_unsats", import_unsats)
 
+def import_per_residue_metric(pdb_path_or_lines, metric, object_name=None, print_cmd=False):
+    """Loads a per_residue metric to the residues"""
+    if is_str(pdb_path_or_lines):
+        per_res_metrics = grep_file(pdb_path_or_lines, f"^{metric}_")
+        if object_name is None:
+            object_name = get_pymol_name(pdb_path_or_lines)
+    else:
+        per_res_metrics = grep_lines(pdb_path_or_lines, f"^{metric}_")
+        if object_name is None:
+            assert False, "Object name is not set when passing lines"
+
+    for res in per_res_metrics:
+        #strip the prefix, so we are left with a key-value pair
+        res = res[len(metric)+1:]
+        resi, val = res.split(' ', maxsplit=1)
+        if print_cmd:
+            print(f'alter {object_name} and resi {resi}, p.{metric}={val}')
+        else:
+            cmd.alter(f'{object_name} and resi {resi}', f"p.{metric}={val}")
+
+
+
+def import_per_residue_metrics(pdb_path, metrics, object_name=None, print_cmd=False):
+    """Loads a per_residue metric to the residues"""
+
+    if object_name is None:
+        object_name = get_pymol_name(pdb_path)
+    
+    if is_str(metrics):
+        metrics = metrics.split()
+
+    lines = read_file(pdb_path).split('\n')
+
+    for metric in metrics:
+        import_per_residue_metric(lines, metric, object_name)
+    
+
+import_per_res_metrics = import_per_residue_metrics
+cmd.extend("import_per_res_metrics", import_per_res_metrics)
+iprms = import_per_res_metrics 
+cmd.extend("iprms", iprms)
+
 def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False, 
         fields="total fa_rep fa_atr fa_sol fa_elec fa_dun_rot"):
     """
@@ -484,6 +533,7 @@ cmd.extend("import_scores", import_scores)
 def color_by_score(field, range="-5 0 5", colors="green white red", selection="visible"):
     if is_str(range):
         range=range.split(' ')
+        print(range)
     if is_str(colors):
        colors=colors.split(' ') 
     cmd.do(f'pseudoatom pOrig, pos=(0,0,0)')
@@ -493,10 +543,6 @@ def color_by_score(field, range="-5 0 5", colors="green white red", selection="v
 cmd.extend("color_by_score", color_by_score)
 cmd.extend("cbs", color_by_score)
 
-def read_json(filename):
-    import json
-    with opengz(filename, 'rt') as _file:
-        return json.load(_file)
 
 def load_error_prediction_data(npz_or_json_file):
     '''
@@ -583,7 +629,7 @@ print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08
 """
 
 
-def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, color_by="score", object=None):
+def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics=[], color_by="score", object=None):
     """
     Loads a rosetta specific pdb with all the additional info.
 
@@ -594,7 +640,7 @@ def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, color_by="score
     scores : bool, optional
         load scores, by default True
     labels : bool, optional
-        load labesl as selections, by default True
+        load labels as selections, by default True
     unsats : bool, optional
         load unsats as dots, by default True
     """
@@ -611,8 +657,13 @@ def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, color_by="score
     if scores:
         import_scores(pdb, object_name=object)
 
-    if color_by=="score":
-        color_by_score("total")
+    if per_res_metrics:
+        import_per_residue_metrics(pdb, metrics=per_res_metrics, object_name=object)
+
+    if color_by:
+        if color_by=='score':
+            color_by=='total'
+        color_by_score(color_by)
     
 
 cmd.extend("load_rosetta_pdb", load_rosetta_pdb)
@@ -620,7 +671,7 @@ lrp = load_rosetta_pdb
 cmd.extend("lrp", lrp)
 
 
-#taken from http://www.protein.osaka-u.ac.jp/rcsfp/supracryst/suzuki/jpxtal/Katsutani/InterfaceResidues.py
+# taken from http://www.protein.osaka-u.ac.jp/rcsfp/supracryst/suzuki/jpxtal/Katsutani/InterfaceResidues.py
 from pymol import stored
  
 def interface_residues(cmpx, cA='c. A', cB='c. B', cutoff=1.0, selName="interface"):
