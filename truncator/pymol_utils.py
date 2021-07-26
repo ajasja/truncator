@@ -387,6 +387,11 @@ def apply_unsat_group(unsat_groups, object_name='all', print_cmd=False):
         sele = f"{resname}`{resnum}/{atom}"
         #print(sele)
         selections.append(sele)
+    
+    if len(selections)==0:
+        print(f"No unsats fund for {name}")
+        return
+
     selections_str = " or ".join(selections)
     selections_str = f"(({selections_str}) and {object_name})"
     cmd_str = f"select {name}_unsats_{object_name}, {selections_str}"
