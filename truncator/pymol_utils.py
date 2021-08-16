@@ -634,7 +634,7 @@ print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08
 """
 
 
-def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics=[], color_by="score", object=None):
+def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics=[], color_by="total", object=None):
     """
     Loads a rosetta specific pdb with all the additional info.
 
@@ -667,7 +667,9 @@ def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics
 
     if color_by:
         if color_by=='score':
-            color_by=='total'
+            color_by='total'
+        if color_by=='total_score':
+            color_by='total'
         color_by_score(color_by)
     
 
