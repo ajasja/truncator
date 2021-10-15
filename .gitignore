@@ -140,3 +140,5 @@ nosetests.xml
 #vscode
 truncator/.vscode
 .vscode
+
+*.pdb
