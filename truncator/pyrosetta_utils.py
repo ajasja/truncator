@@ -1,7 +1,7 @@
 # print("IMPORTING pyrosetta")
-import pyrosetta
-from pyrosetta import rosetta
-
+#import pyrosetta
+#from pyrosetta import rosetta
+#import pyrosetta.distributed.io
 
 def get_layer_selector_form_XML(tag_str):
     """Given a layer selector XML returns the layer selector object"""
@@ -70,7 +70,7 @@ def get_selector_resids(selector, pose):
     res_ids = [str(id_) for id_ in res_ids]
     return ",".join(res_ids)
 
-import pyrosetta.distributed.io
+
 def pose_to_pdb_file(packed_pose, filename):
     with open(filename, "w+") as opdb:
         opdb.write(pyrosetta.distributed.io.to_pdbstring(packed_pose))
@@ -112,3 +112,17 @@ def add_seq_to_labels(pdb_file, out_name=None):
     print('Saving to: '+out_name)
     pose.dump_pdb(out_name)
     return pose
+
+def replace_res(pose_source, pose_target, res, verbose=True, orient_backbone=True, transfer_label='transfered'):
+    """Copies residue `res` from `source_pose` to `target_pose`. Also copies over the labels."""
+    if verbose:
+        print(f"Replacing res {res} source: {pose_source.residue(res).name1()} -> target: {pose_target.residue(res).name1()}")  
+    pose_target.replace_residue(res, pose_source.residue(res), orient_backbone=orient_backbone)    
+    #copy over tha labels
+    source_lab = pose_source.pdb_info().get_reslabels(res)
+    tpi = pose_target.pdb_info()
+    tpi.clear_reslabel(res)
+    for lab in source_lab:
+        tpi.add_reslabel(res, lab)
+    if transfer_label:
+        tpi.add_reslabel(res, transfer_label)
