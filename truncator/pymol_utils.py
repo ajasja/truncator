@@ -501,11 +501,22 @@ def import_scores_from_pdb(pdb_path, object_name=None, print_cmd=False,
         #check that the reqired fields are present
         fields_set = set(fields)
         reader_set = set(reader.fieldnames)
-        assert fields_set.issubset(reader_set), f"Fields {fields_set.difference(reader_set)} are not in the PDB energy table. \
-            \n fields    :{fields} \
-            \n cvs_header:{reader.fieldnames}"
+        if not fields_set.issubset(reader_set):
+            #Warn that some fields are not fund
+            print( 
+                f"Fields {fields_set.difference(reader_set)} are not in the PDB energy table. \
+\n fields    :{fields} \
+\n cvs_header:{reader.fieldnames}"
+            )
+            #ignore those
+            fields = list(fields_set.intersection(reader_set))
+
+    if fields==[]:
+        print("No fields to load")
+        return None
 
     fields_str = ""
+    
     for field in fields:
         fields_str = fields_str + f"p.{field}=0;"
     if print_cmd:
