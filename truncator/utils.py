@@ -400,7 +400,7 @@ space_remover = re.compile(r'\s+')
 def remove_whitespace(str_):
     return re.sub(space_remover, '', str_)
 
-def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_format='.pdb'):
+def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_format='.pdb', remove_chain_in_name=True):
     """Extracts a chain from pdb to a pdb or fasta file"""
     import pymol
     from pymol import cmd
@@ -421,8 +421,9 @@ def extract_chain(pdb_name, chain='A', out_name=None, out_dir='fasta_AA', out_fo
     with truncator.working_directory(out_dir):
         if out_format=='.fasta':
             fasta_str = cmd.get_fastastr(f'all')
-            #get rid of _A or other chain at the end
-            fasta_str = re.sub(f">(.*)_{chain}\n", ">\\1\n", fasta_str)
+            if remove_chain_in_name:
+                #get rid of _A or other chain at the end
+                fasta_str = re.sub(f">(.*)_{chain}\n", ">\\1\n", fasta_str)
             #print(fasta_str)
             truncator.write_file(out_name+out_format, fasta_str)
         else:    
