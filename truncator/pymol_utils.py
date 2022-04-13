@@ -560,6 +560,24 @@ cmd.extend("color_by_score", color_by_score)
 cmd.extend("cbs", color_by_score)
 
 
+def color_by_layers(core_cutoff = 19, surf_cutoff = 40, type=None,
+                    core_color='red', bdry_color='orange', surf_color='yellow' ):
+    if type=='sasa':
+        cmd.select('core', f'p.per_res_sasa<{core_cutoff}')
+        cmd.select('bdry', f'p.per_res_sasa>{core_cutoff} and p.per_res_sasa<{surf_cutoff}')
+        cmd.select('surf', f'p.per_res_sasa>{surf_cutoff}')    
+    if type=='nc':
+        cmd.select('core', f'p.per_res_nc>{core_cutoff}')
+        cmd.select('bdry', f'p.per_res_nc<{core_cutoff} and p.per_res_nc>{surf_cutoff}')
+        cmd.select('surf', f'p.per_res_nc<{surf_cutoff}')
+
+    cmd.color(core_color, 'core')
+    cmd.color(bdry_color, 'bdry')
+    cmd.color(surf_color, 'surf')
+
+cmd.extend("color_by_layers", color_by_layers)
+cmd.extend("cbl", color_by_layers)
+
 def load_error_prediction_data(npz_or_json_file):
     '''
         Metric types are:
@@ -645,7 +663,7 @@ print(get_alignment_map("/ZCON_1__numH3__from-22.38__to07.23__grAB-CD//A","DHR08
 """
 
 
-def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics=[], color_by="total", object=None):
+def load_rosetta_pdb(pdb, scores=True, labels=True, unsats=True, per_res_metrics='per_res_sasa per_res_nc'.split(), color_by="total", object=None):
     """
     Loads a rosetta specific pdb with all the additional info.
 
@@ -821,8 +839,9 @@ def get_chainbreaks(objname_or_file, cutoff_A=2, cmd=None, delete_all_before_loa
             cmd.delete('all')
         cmd.load(objname_or_file, object=objname)
     else:
-        objname = objname_or_file 
+        objname = objname_or_file
 
+    print(objname)
     C_atoms = cmd.get_coords(objname+" and name C", 1)
     N_atoms = cmd.get_coords(objname+" and name N", 1)
     #subastract the C from the N of the next residue
